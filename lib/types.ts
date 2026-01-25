@@ -39,4 +39,8 @@ export type WordData = {
   dueAt: number;
 
   weakness?: Weakness;
+
+  // タイムスタンプ
+  createdAt: number; // ms
+  updatedAt: number; // ms
 };
