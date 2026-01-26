@@ -192,7 +192,7 @@ export default function NewWordPage() {
       })),
       currentStage: 0,
       stageStreak: 0,
-      stability: 0,
+      stability: 1,
       dueAt: now,
       weakness: undefined,
       createdAt: now,

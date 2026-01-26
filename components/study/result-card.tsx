@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react"
 import { CheckCircle2, XCircle } from "lucide-react"
 import { AudioButton } from "./audio-button"
-import type { WordData } from "./study-screen"
-import type { SentenceData } from "@/lib/types"
+import type { WordData, SentenceData } from "@/lib/types"
 import { playCorrect, playWrong } from "@/lib/sfx"
 
 interface ResultCardProps {
@@ -13,6 +12,10 @@ interface ResultCardProps {
   wordData: WordData
   onNext: () => void
   isLastQuestion?: boolean
+
+  // ✅ Normal Study: "+10 more" 用（任意）
+  onMore?: () => void
+  canMore?: boolean
 }
 
 export function ResultCard({
@@ -21,6 +24,8 @@ export function ResultCard({
   wordData,
   onNext,
   isLastQuestion = false,
+  onMore,
+  canMore = false,
 }: ResultCardProps) {
   const [activeTab, setActiveTab] = useState<"examples" | "notes" | "qa">("examples")
   const [notes, setNotes] = useState("")
@@ -84,10 +89,7 @@ export function ResultCard({
               </div>
             ) : (
               sentences.map((s, index) => (
-                <div
-                  key={s.id ?? index}
-                  className="p-3 rounded-lg bg-white border border-[#E5E7EB]"
-                >
+                <div key={s.id ?? index} className="p-3 rounded-lg bg-white border border-[#E5E7EB]">
                   <div className="flex items-start gap-3">
                     <AudioButton
                       size="medium"
@@ -127,20 +129,53 @@ export function ResultCard({
 
       {/* Action buttons */}
       <div className="mt-6 space-y-3">
-        <button
-          onClick={onNext}
-          className="w-full py-3 text-base font-medium text-white bg-[#2563EB] rounded-lg hover:bg-[#1D4ED8] transition-colors min-h-[48px] focus:outline-none focus:ring-2 focus:ring-[#93C5FD] focus:ring-offset-2"
-        >
-          {isLastQuestion ? "Finish" : "Next"}
-        </button>
+        {/* ✅ last question: Finish / +10 more */}
+        {isLastQuestion ? (
+          <>
+            <button
+              onClick={onNext}
+              className="w-full py-3 text-base font-medium text-white bg-[#2563EB] rounded-lg hover:bg-[#1D4ED8] transition-colors min-h-[48px] focus:outline-none focus:ring-2 focus:ring-[#93C5FD] focus:ring-offset-2"
+            >
+              Finish
+            </button>
 
-        {!isLastQuestion && (
-          <a
-            href="/"
-            className="block text-sm text-[#6B7280] hover:text-[#2563EB] underline text-center transition-colors"
-          >
-            Back to Home
-          </a>
+            {onMore && (
+              <button
+                onClick={onMore}
+                disabled={!canMore}
+                className={`w-full py-3 text-base font-medium rounded-lg transition-colors min-h-[48px] focus:outline-none focus:ring-2 focus:ring-[#93C5FD] focus:ring-offset-2 ${
+                  canMore
+                    ? "text-[#111827] bg-white border border-[#E5E7EB] hover:bg-[#EFF6FF] active:bg-[#DBEAFE]"
+                    : "text-[#111827] bg-white border border-[#E5E7EB] opacity-55 cursor-not-allowed"
+                }`}
+              >
+                +10 more
+              </button>
+            )}
+
+            <a
+              href="/"
+              className="block text-sm text-[#6B7280] hover:text-[#2563EB] underline text-center transition-colors"
+            >
+              Back to Home
+            </a>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={onNext}
+              className="w-full py-3 text-base font-medium text-white bg-[#2563EB] rounded-lg hover:bg-[#1D4ED8] transition-colors min-h-[48px] focus:outline-none focus:ring-2 focus:ring-[#93C5FD] focus:ring-offset-2"
+            >
+              Next
+            </button>
+
+            <a
+              href="/"
+              className="block text-sm text-[#6B7280] hover:text-[#2563EB] underline text-center transition-colors"
+            >
+              Back to Home
+            </a>
+          </>
         )}
       </div>
     </div>

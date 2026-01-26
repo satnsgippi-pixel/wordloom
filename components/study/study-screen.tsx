@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import { StudyHeader } from "./study-header"
 import { QuestionCard } from "./question-card"
 import { ResultCard } from "./result-card"
@@ -14,101 +15,242 @@ import { Stage5ClozeSingle } from "./stages/stage-5-cloze-single"
 import { Stage6ClozeMultiple } from "./stages/stage-6-cloze-multiple"
 import { Stage7SelfJudge } from "./stages/stage-7-self-judge"
 
-import { getWords, markWrong } from "@/lib/words-store"
+import {
+  getWords,
+  markWeaknessCorrect,
+  markWeaknessWrong,
+  markNormalCorrect,
+  markNormalWrong,
+} from "@/lib/words-store"
 import type { WordData } from "@/lib/types"
+import { incrementTodayProgress } from "@/lib/daily-progress"
 
 export type StudyMode = "normal" | "weakness" | "quiz" | "challenge"
-export type { WordData }
 
-// ✅ Stage2（音声）も含めて回す
-// stage番号はそのまま使う（ResultCardやmarkWrongの記録にも効く）
 const WORD_STAGES = [0, 1, 2, 3, 4, 5, 6, 7] as const
-const PHRASE_STAGES = [0, 1, 2, 3, 4, 6, 7] as const // phraseはStage5をスキップ
+const PHRASE_STAGES = [0, 1, 2, 3, 4, 6, 7] as const
 type ActiveStage = (typeof WORD_STAGES)[number]
 
-// util: shuffle
+// util
 function shuffle<T>(arr: T[]): T[] {
   return [...arr].sort(() => Math.random() - 0.5)
 }
 
-export function StudyScreen() {
-  const [mode] = useState<StudyMode>("normal")
+function getDueAtSafe(w: any): number {
+  const v = w?.dueAt
+  if (typeof v === "number" && Number.isFinite(v)) return v
+  return 0
+}
 
-  // 出題キュー（単語の順番）
+function clampStage(stage: number, list: readonly number[]) {
+  const min = list[0]
+  const max = list[list.length - 1]
+  return Math.max(min, Math.min(max, stage))
+}
+
+type Props = {
+  mode?: StudyMode
+}
+
+export function StudyScreen({ mode = "normal" }: Props) {
+  const router = useRouter()
+
   const [queue, setQueue] = useState<WordData[]>([])
   const [qIndex, setQIndex] = useState(0)
-
-  // ステージ
-  const [stageIndex, setStageIndex] = useState(0)
 
   const [progress, setProgress] = useState({ current: 1, total: 20 })
   const [answer, setAnswer] = useState<string | null>(null)
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null)
   const [showResult, setShowResult] = useState(false)
 
+  // ✅ Normal "+10 more" 用
+  const [normalPickedIds, setNormalPickedIds] = useState<Set<string>>(new Set())
+  const [canMore, setCanMore] = useState(false)
+
   const currentWord: WordData | null = useMemo(() => {
     if (queue.length === 0) return null
     return queue[Math.min(qIndex, queue.length - 1)] ?? null
   }, [queue, qIndex])
 
-  const stages = useMemo(() => {
-    return currentWord?.entryType === "phrase" ? PHRASE_STAGES : WORD_STAGES
-  }, [currentWord?.entryType])
+  const currentStage: ActiveStage = useMemo(() => {
+    if (!currentWord) return 0
 
-  const currentStage: ActiveStage = stages[stageIndex] as ActiveStage
-
-  useEffect(() => {
-    const words = getWords()
-    if (words.length === 0) {
-      setQueue([])
-      setQIndex(0)
-      return
+    if (mode === "weakness" && currentWord.weakness) {
+      return currentWord.weakness.stage as ActiveStage
     }
-    setQueue(shuffle(words))
-    setQIndex(0)
-    setStageIndex(0)
-  }, [])
 
-  // wordが変わったら stageIndex を0に戻す（entryTypeでlengthが変わると indexがはみ出すので）
+    const list = currentWord.entryType === "phrase" ? PHRASE_STAGES : WORD_STAGES
+    return clampStage(currentWord.currentStage ?? 0, list) as ActiveStage
+  }, [currentWord, mode])
+
+  // ✅ 問題が切り替わるたびにUI状態をリセット
   useEffect(() => {
-    setStageIndex(0)
-  }, [currentWord?.id])
-
-  const handleAnswer = (selectedAnswer: string, correct: boolean) => {
-    setAnswer(selectedAnswer)
-    setIsCorrect(correct)
-    setShowResult(true)
-
-    if (!correct && currentWord) {
-      markWrong(currentWord.word, currentStage)
-    }
-  }
-
-  const handleNext = () => {
     setAnswer(null)
     setIsCorrect(null)
     setShowResult(false)
+  }, [currentWord?.id, currentStage, mode])
 
-    // 次のステージへ
-    const nextStageIndex = (stageIndex + 1) % stages.length
-    setStageIndex(nextStageIndex)
+  // ✅ キュー構築（mode依存）
+  useEffect(() => {
+    const words = getWords()
+    const now = Date.now()
 
-    // ✅ ステージが一周したら次の単語へ
-    if (nextStageIndex === 0) {
-      setQIndex((prev) => prev + 1)
-      setProgress((prev) => ({
-        ...prev,
-        current: Math.min(prev.current + 1, prev.total),
-      }))
+    if (words.length === 0) {
+      setQueue([])
+      setQIndex(0)
+      setProgress({ current: 1, total: 0 })
+      setNormalPickedIds(new Set())
+      setCanMore(false)
+      return
     }
+
+    if (mode === "weakness") {
+      const targets = words.filter((w) => !!w.weakness)
+      const picked = shuffle(targets).slice(0, 10)
+
+      setQueue(picked)
+      setQIndex(0)
+      setProgress({ current: 1, total: picked.length })
+
+      setNormalPickedIds(new Set())
+      setCanMore(false)
+      return
+    }
+
+    if (mode === "challenge") {
+      const now = Date.now()
+    
+      const targets = words.filter(
+        (w) =>
+          (w.stability ?? 0) >= 12 &&
+          !w.weakness &&
+          getDueAtSafe(w) > now
+      )
+    
+      const picked = shuffle(targets).slice(0, 10)
+    
+      setQueue(picked)
+      setQIndex(0)
+      setProgress({ current: 1, total: picked.length })
+      return
+    }    
+    
+    // ✅ Normal: dueAt <= now のみ（最大20）
+    const dueWords = words.filter((w) => getDueAtSafe(w) <= now)
+    const first = shuffle(dueWords).slice(0, 20)
+
+    setQueue(first)
+    setQIndex(0)
+    setProgress({ current: 1, total: first.length })
+
+    // ✅ すでに出したIDを記録（+10 more の重複防止）
+    setNormalPickedIds(new Set(first.map((w) => w.id)))
+
+    // ✅ 追加できるか（残りのdueがあるか）
+    setCanMore(dueWords.length > first.length)
+  }, [mode])
+
+  const handleAnswer = (_: string, correct: boolean) => {
+    setIsCorrect(correct)
+    setShowResult(true)
+  
+if (mode === "challenge") {
+  // 何もしない（音・UIだけ）
+  return
+}
+
+    // ✅ 今日の進捗 +1
+    incrementTodayProgress(1)
+
+    if (!currentWord) return
+
+    if (mode === "weakness") {
+      correct
+        ? markWeaknessCorrect(currentWord.id)
+        : markWeaknessWrong(currentWord.id, currentStage)
+      return
+    }
+
+    correct
+      ? markNormalCorrect(currentWord.id)
+      : markNormalWrong(currentWord.id, currentStage)
   }
+
+  const handleNext = () => {
+    setQIndex((prev) => prev + 1)
+    setProgress((p) => ({
+      ...p,
+      current: Math.min(p.current + 1, p.total),
+    }))
+  }
+
+  // ✅ Normal: +10 more
+  const handleMore = () => {
+    if (mode !== "normal") return
+
+    const words = getWords()
+    const now = Date.now()
+    const dueWords = words.filter((w) => getDueAtSafe(w) <= now)
+
+    const remaining = dueWords.filter((w) => !normalPickedIds.has(w.id))
+    const add = shuffle(remaining).slice(0, 10)
+
+    if (add.length === 0) {
+      setCanMore(false)
+      return
+    }
+
+    setQueue((prev) => [...prev, ...add])
+    setProgress((p) => ({ ...p, total: p.total + add.length }))
+
+    setNormalPickedIds((prev) => {
+      const next = new Set(prev)
+      add.forEach((w) => next.add(w.id))
+      return next
+    })
+
+    setCanMore(remaining.length > add.length)
+  }
+
+  const renderEmpty = (message: string, ctaHref: string, ctaLabel: string) => {
+    return (
+      <div className="space-y-3">
+        <div className="text-sm text-zinc-600">{message}</div>
+        <a
+          href={ctaHref}
+          className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-[#2563EB] bg-[#EFF6FF] rounded-lg hover:bg-[#DBEAFE] transition-colors min-h-[44px]"
+        >
+          {ctaLabel}
+        </a>
+      </div>
+    )
+  }
+
+  const isLastQuestion = progress.total > 0 && progress.current >= progress.total
 
   const renderStage = () => {
     if (!currentWord) {
-      return (
-        <div className="text-sm text-zinc-600">
-          単語がありません。先に登録してください。
-        </div>
+      if (mode === "weakness") {
+        return renderEmpty(
+          "弱点復習できる単語がありません。通常学習で間違えた単語がここに入ります。",
+          "/study",
+          "Go to Normal Study"
+        )
+      }
+
+      return renderEmpty(
+        "今日は学習できる単語が少なめです。新しい単語を登録しませんか？",
+        "/words/new",
+        "Add a Word"
+      )
+    }
+
+    // Weaknessだがweaknessが消えた場合の保険（セッション中に解除された等）
+    if (mode === "weakness" && !currentWord.weakness) {
+      return renderEmpty(
+        "この単語は弱点復習の対象ではなくなりました。次の問題へ進んでください。",
+        "/",
+        "Back to Home"
       )
     }
 
@@ -121,27 +263,25 @@ export function StudyScreen() {
 
     switch (currentStage) {
       case 0:
-        return <Stage0EnJa {...commonProps} />
+        return <Stage0EnJa key={`${currentWord.id}-${currentStage}`} {...commonProps} />
       case 1:
-        return <Stage1JaEn {...commonProps} />
+        return <Stage1JaEn key={`${currentWord.id}-${currentStage}`} {...commonProps} />
       case 2:
-        return <Stage2SentenceAudio {...commonProps} />
+        return <Stage2SentenceAudio key={`${currentWord.id}-${currentStage}`} {...commonProps} />
       case 3:
-        return <Stage3JaEnType {...commonProps} />
+        return <Stage3JaEnType key={`${currentWord.id}-${currentStage}`} {...commonProps} />
       case 4:
-        return <Stage4Definition {...commonProps} />
+        return <Stage4Definition key={`${currentWord.id}-${currentStage}`} {...commonProps} />
       case 5:
-        return <Stage5ClozeSingle {...commonProps} />
+        return <Stage5ClozeSingle key={`${currentWord.id}-${currentStage}`} {...commonProps} />
       case 6:
-        return <Stage6ClozeMultiple {...commonProps} />
+        return <Stage6ClozeMultiple key={`${currentWord.id}-${currentStage}`} {...commonProps} />
       case 7:
-        return <Stage7SelfJudge {...commonProps} />
+        return <Stage7SelfJudge key={`${currentWord.id}-${currentStage}`} {...commonProps} />
       default:
-        return <Stage0EnJa {...commonProps} />
+        return <Stage0EnJa key={`${currentWord.id}-${currentStage}`} {...commonProps} />
     }
   }
-
-  const isLastQuestion = progress.current >= progress.total
 
   return (
     <div className="min-h-screen bg-[#F8FAFC]">
@@ -154,8 +294,16 @@ export function StudyScreen() {
             isCorrect={isCorrect!}
             correctAnswer={currentWord.word}
             wordData={currentWord}
-            onNext={handleNext}
             isLastQuestion={isLastQuestion}
+            onMore={mode === "normal" ? handleMore : undefined}
+            canMore={mode === "normal" ? canMore : false}
+            onNext={() => {
+              if (isLastQuestion) {
+                router.push("/")
+              } else {
+                handleNext()
+              }
+            }}
           />
         )}
       </main>
