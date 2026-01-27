@@ -290,6 +290,21 @@ export function getWeakWordsCount(): number {
 
 const WORDS_CHANGED_EVENT = "wordloom:words-changed";
 
+// ===== Challenge support =====
+export function getChallengeReadyCount(now = Date.now()): number {
+  const words = loadWords()
+
+  return words.filter((w) => {
+    const stability = w.stability ?? 0
+    const dueAt =
+      typeof (w as any).dueAt === "number" && Number.isFinite((w as any).dueAt)
+        ? (w as any).dueAt
+        : 0
+
+    return stability >= 12 && !w.weakness && dueAt > now
+  }).length
+}
+
 export function subscribeWords(onChange: () => void) {
   if (typeof window === "undefined") return () => {};
 

@@ -13,70 +13,55 @@ import {
   getNextNDaysCount,
   getLearnedL6PlusCount,
   getInProgressCount,
+  getChallengeReadyCount,
   subscribeWords,
-  resetWordsStorage,
 } from "@/lib/words-store"
 import { getTodayProgress } from "@/lib/daily-progress"
+import { DataTools } from "@/components/settings/data-tools"
 
 // temporary (AI writing preview)
-const dailyPrompt = "Use \"affect\" in a sentence about your day."
+const dailyPrompt = 'Use "affect" in a sentence about your day.'
 const dailyDraft = ""
-
 
 export function DashboardPage() {
   const [weakWords, setWeakWords] = useState(0)
   const [totalWords, setTotalWords] = useState(0)
-  const isDev = process.env.NODE_ENV !== "production"
+  const [challengeReady, setChallengeReady] = useState(0)
+
   const [dueNow, setDueNow] = useState(0)
   const [overdue, setOverdue] = useState(0)
   const [next3Days, setNext3Days] = useState(0)
   const [learnedL6Plus, setLearnedL6Plus] = useState(0)
   const [inProgress, setInProgress] = useState(0)
   const [todayProgress, setTodayProgress] = useState(0)
+
   const dailyGoal = 20
 
   useEffect(() => {
     const refresh = () => {
       setWeakWords(getWeakWordsCount())
       setTotalWords(getTotalWordsCount())
-  
+
       setDueNow(getDueNowCount())
       setOverdue(getOverdueCount())
       setNext3Days(getNextNDaysCount(3))
-  
+
       setLearnedL6Plus(getLearnedL6PlusCount())
       setInProgress(getInProgressCount())
       setTodayProgress(getTodayProgress())
+
+      // ✅ Challenge is enabled only when ready words exist
+      setChallengeReady(getChallengeReadyCount())
     }
-  
-    // Initial load
+
     refresh()
-  
-    // Subscribe to changes
+
     const unsubscribe = subscribeWords(() => {
       refresh()
     })
-  
+
     return unsubscribe
-  }, [])  
-
-  const handleResetLearningData = () => {
-    if (!isDev) return
-
-    const confirmed = window.confirm(
-      "Are you sure you want to reset all learning data? This will clear all word progress and weaknesses stored in localStorage. This action cannot be undone."
-    )
-
-    if (confirmed) {
-      try {
-        resetWordsStorage()
-        console.log("[dev] words storage reset")
-        window.location.reload()
-      } catch (error) {
-        console.error("[dev] Failed to reset words storage:", error)
-      }
-    }
-  }
+  }, [])
 
   return (
     <div className="min-h-dvh bg-[#F8FAFC] pb-20">
@@ -86,7 +71,7 @@ export function DashboardPage() {
           learnedL6Plus={learnedL6Plus}
           inProgress={inProgress}
           totalWords={totalWords}
-       />
+        />
 
         {/* B) Today's Study Card */}
         <TodayStudyCard
@@ -100,9 +85,16 @@ export function DashboardPage() {
         {/* C) Mode Shortcuts */}
         <ModeShortcuts
           weakWords={weakWords}
+          challengeReady={challengeReady}
           dailyPrompt={dailyPrompt}
           dailyDraft={dailyDraft}
         />
+
+        {/* Data Export / Import */}
+        <div className="pt-6 border-t border-[#E5E7EB]">
+          <DataTools />
+        </div>
+
       </main>
 
       {/* D) Bottom Navigation */}
