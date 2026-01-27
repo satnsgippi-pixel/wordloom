@@ -291,18 +291,9 @@ export function getWeakWordsCount(): number {
 const WORDS_CHANGED_EVENT = "wordloom:words-changed";
 
 // ===== Challenge support =====
-export function getChallengeReadyCount(now = Date.now()): number {
+export function getChallengeReadyCount(minStability: number = 12): number {
   const words = loadWords()
-
-  return words.filter((w) => {
-    const stability = w.stability ?? 0
-    const dueAt =
-      typeof (w as any).dueAt === "number" && Number.isFinite((w as any).dueAt)
-        ? (w as any).dueAt
-        : 0
-
-    return stability >= 12 && !w.weakness && dueAt > now
-  }).length
+  return words.filter((w) => (w.stability ?? 0) >= minStability && !w.weakness).length
 }
 
 export function subscribeWords(onChange: () => void) {
@@ -381,6 +372,25 @@ export function getInProgressCount(): number {
   const total = getTotalWordsCount()
   const learned = getLearnedL6PlusCount()
   return Math.max(0, total - learned)
+}
+
+export function setQaMemo(wordId: string, qaMemo: string) {
+  const words = loadWords()
+  const target = words.find((w) => w.id === wordId)
+  if (!target) return
+
+  const updated: WordData = {
+    ...target,
+    qaMemo,
+    updatedAt: Date.now(),
+  }
+
+  upsertWord(updated)
+
+  // Dashboard等に反映させる（既にあるならそれを使う）
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("wordloom:words-changed"))
+  }
 }
 
 // どこからでも通知したいとき用（任意）

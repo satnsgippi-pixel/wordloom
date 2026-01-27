@@ -18,10 +18,7 @@ import {
 } from "@/lib/words-store"
 import { getTodayProgress } from "@/lib/daily-progress"
 import { DataTools } from "@/components/settings/data-tools"
-
-// temporary (AI writing preview)
-const dailyPrompt = 'Use "affect" in a sentence about your day.'
-const dailyDraft = ""
+import { isTodayAiWritingDone } from "@/lib/daily-writing"
 
 export function DashboardPage() {
   const [weakWords, setWeakWords] = useState(0)
@@ -36,6 +33,7 @@ export function DashboardPage() {
   const [todayProgress, setTodayProgress] = useState(0)
 
   const dailyGoal = 20
+  const [aiWritingDone, setAiWritingDone] = useState(false)
 
   useEffect(() => {
     const refresh = () => {
@@ -51,7 +49,9 @@ export function DashboardPage() {
       setTodayProgress(getTodayProgress())
 
       // ✅ Challenge is enabled only when ready words exist
-      setChallengeReady(getChallengeReadyCount())
+      setChallengeReady(getChallengeReadyCount(12))
+
+      setAiWritingDone(isTodayAiWritingDone())
     }
 
     refresh()
@@ -85,9 +85,8 @@ export function DashboardPage() {
         {/* C) Mode Shortcuts */}
         <ModeShortcuts
           weakWords={weakWords}
-          challengeReady={challengeReady}
-          dailyPrompt={dailyPrompt}
-          dailyDraft={dailyDraft}
+          challengeEnabled={challengeReady > 0}
+        
         />
 
         {/* Data Export / Import */}
