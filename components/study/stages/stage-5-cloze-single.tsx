@@ -1,8 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import type { WordData } from "../study-screen"
-import type { SentenceData } from "@/lib/types"
+import type { WordData, SentenceData } from "@/lib/types"
 
 interface Stage5Props {
   wordData: WordData

@@ -1,7 +1,7 @@
 "use client"
 
 import { TextInput } from "../text-input"
-import type { WordData } from "../study-screen"
+import type { WordData } from "@/lib/types"
 
 interface Stage3Props {
   wordData: WordData

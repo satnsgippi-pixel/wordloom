@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { AudioButton } from "../audio-button"
 import { MultipleChoice } from "../multiple-choice"
-import type { WordData } from "../study-screen"
+import type { WordData } from "@/lib/types"
 import { getWords, generateMeaningChoices } from "@/lib/words-store"
 
 interface Stage0Props {

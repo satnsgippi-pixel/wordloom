@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { MultipleChoice } from "../multiple-choice"
-import type { WordData } from "../study-screen"
+import type { WordData } from "@/lib/types"
 import { getWords, generateWordChoices } from "@/lib/words-store"
 
 interface Stage1Props {
