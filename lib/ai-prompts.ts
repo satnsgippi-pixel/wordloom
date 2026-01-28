@@ -22,7 +22,6 @@ export function buildQaPrompt(word: WordData, userQuestion: string) {
 Entry: ${safeStr(word.word)}
 Type: ${safeStr(word.entryType)}
 Meaning(JP): ${safeStr(word.meaning)}
-Definition(EN): ${safeStr(word.definition) || "N/A"}
 
 ${exLines}
 
@@ -34,7 +33,6 @@ export function buildWritingPrompt(word: WordData, draft: string) {
   return `[Wordloom Writing]
 Target: ${safeStr(word.word)} (${safeStr(word.entryType)})
 Meaning(JP): ${safeStr(word.meaning)}
-Definition(EN): ${safeStr(word.definition) || "N/A"}
 
 Task:
 Write ONE natural sentence about my day using the target.

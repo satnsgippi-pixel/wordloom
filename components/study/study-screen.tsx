@@ -10,7 +10,6 @@ import { Stage0EnJa } from "./stages/stage-0-en-ja"
 import { Stage1JaEn } from "./stages/stage-1-ja-en"
 import { Stage2SentenceAudio } from "./stages/stage-2-sentence-audio"
 import { Stage3JaEnType } from "./stages/stage-3-ja-en-type"
-import { Stage4Definition } from "./stages/stage-4-definition"
 import { Stage5ClozeSingle } from "./stages/stage-5-cloze-single"
 import { Stage6ClozeMultiple } from "./stages/stage-6-cloze-multiple"
 import { Stage7SelfJudge } from "./stages/stage-7-self-judge"
@@ -27,8 +26,8 @@ import { incrementTodayProgress } from "@/lib/daily-progress"
 
 export type StudyMode = "normal" | "weakness" | "quiz" | "challenge"
 
-const WORD_STAGES = [0, 1, 2, 3, 4, 5, 6, 7] as const
-const PHRASE_STAGES = [0, 1, 2, 3, 4, 6, 7] as const
+const WORD_STAGES = [0, 1, 2, 3, 5, 6, 7] as const
+const PHRASE_STAGES = [0, 1, 2, 3, 6, 7] as const
 type ActiveStage = (typeof WORD_STAGES)[number]
 
 // util
@@ -271,7 +270,8 @@ if (mode === "challenge") {
       case 3:
         return <Stage3JaEnType key={`${currentWord.id}-${currentStage}`} {...commonProps} />
       case 4:
-        return <Stage4Definition key={`${currentWord.id}-${currentStage}`} {...commonProps} />
+        // Stage4 は廃止：stage4 の場合は stage5 にスキップ（既存データ互換性のため）
+        return <Stage5ClozeSingle key={`${currentWord.id}-${currentStage}`} {...commonProps} />
       case 5:
         return <Stage5ClozeSingle key={`${currentWord.id}-${currentStage}`} {...commonProps} />
       case 6:

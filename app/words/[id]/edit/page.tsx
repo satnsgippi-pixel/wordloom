@@ -34,7 +34,6 @@ export default function EditWordPage() {
   const [entryType, setEntryType] = useState<EntryType>("word");
   const [word, setWord] = useState("");
   const [meaning, setMeaning] = useState("");
-  const [definition, setDefinition] = useState("");
 
   const [sentencesDraft, setSentencesDraft] = useState<SentenceDraft[]>([
     {
@@ -61,7 +60,6 @@ export default function EditWordPage() {
     setEntryType(found.entryType ?? "word");
     setWord(found.word ?? "");
     setMeaning(found.meaning ?? "");
-    setDefinition(found.definition ?? "");
 
     const ds: SentenceDraft[] =
       (found.sentences?.length ? found.sentences : []).map((s) => ({
@@ -205,8 +203,7 @@ export default function EditWordPage() {
   // ---- validation ----
   const baseOk =
     word.trim().length > 0 &&
-    meaning.trim().length > 0 &&
-    definition.trim().length > 0;
+    meaning.trim().length > 0;
 
   const allSentencesOk = sentencesDraft.every(
     (s) => s.en.trim().length > 0 && s.ja.trim().length > 0 && s.tokens.length > 0
@@ -233,7 +230,6 @@ export default function EditWordPage() {
       entryType,
       word: word.trim(),
       meaning: meaning.trim(),
-      definition: definition.trim(),
       sentences: sentencesDraft.map((s) => ({
         id: s.id,
         en: s.en.trim(),
@@ -332,7 +328,7 @@ export default function EditWordPage() {
           </p>
         </div>
 
-        {/* Word / Meaning / Definition */}
+        {/* Word / Meaning */}
         <div className="space-y-4 mb-6">
           <div>
             <label className="block text-sm font-medium text-[#6B7280] mb-2">
@@ -353,18 +349,6 @@ export default function EditWordPage() {
               value={meaning}
               onChange={(e) => setMeaning(e.target.value)}
               className="w-full px-4 py-3 bg-white border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#93C5FD]"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-[#6B7280] mb-2">
-              Definition (required)
-            </label>
-            <textarea
-              value={definition}
-              onChange={(e) => setDefinition(e.target.value)}
-              rows={2}
-              className="w-full px-4 py-3 bg-white border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#93C5FD] resize-none"
             />
           </div>
         </div>

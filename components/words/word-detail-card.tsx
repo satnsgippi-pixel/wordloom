@@ -26,13 +26,6 @@ export function WordDetailCard({ word }: { word: WordData }) {
         </div>
 
         <p className="mt-1 text-sm text-[#6B7280]">{word.meaning}</p>
-
-        {word.definition && (
-          <p className="mt-2 text-sm text-[#111827]">
-            <span className="text-xs text-[#6B7280] mr-2">definition</span>
-            {word.definition}
-          </p>
-        )}
       </div>
 
       {/* Tabs */}

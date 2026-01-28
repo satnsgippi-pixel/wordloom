@@ -26,7 +26,7 @@ export type WordData = {
 
   word: string;
   meaning: string;
-  definition: string; // 必須
+  definition?: string; // 廃止（既存データ互換性のため optional のまま）
   qaMemo?: string
 
   sentences: SentenceData[];

@@ -260,7 +260,7 @@ export function generateMeaningChoices(word: WordData, pool: WordData[]) {
 
 /**
  * word（英単語/フレーズ）の4択を生成
- * Stage1（JA→EN）、Stage4（Definition→EN）で使用
+ * Stage1（JA→EN）で使用
  */
 export function generateWordChoices(word: WordData, pool: WordData[]) {
   const correct = { label: word.word, isCorrect: true };
