@@ -2,7 +2,7 @@
 export type EntryType = "word" | "phrase";
 
 export type Weakness = {
-  stage: number;      // 0..7
+  stage: number;      // 0, 1, 2, 3, 5, 6, 7
   streak: number;    // 連続正解数（弱点復習用）
   updatedAt: number; // ms
 };
@@ -26,7 +26,6 @@ export type WordData = {
 
   word: string;
   meaning: string;
-  definition?: string; // 廃止（既存データ互換性のため optional のまま）
   qaMemo?: string
 
   sentences: SentenceData[];

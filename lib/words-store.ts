@@ -11,7 +11,7 @@ const WEAKNESS_CLEAR_STREAK = 2;
 
 // ===== Normal Study: stage進行ルール =====
 function requiredStreak(stage: number) {
-  // stage0-4: 2連続 / stage5-7: 5連続
+  // stage0-3: 2連続 / stage5-7: 5連続
   return stage >= 5 ? 5 : 2;
 }
 
@@ -229,7 +229,7 @@ export function markWrong(wordText: string, stage: number) {
 }
 
 /**
- * Stage0 用：4択の選択肢を作る（暫定）
+ * Stage0 用：4択の選択肢を作る
  */
 export function getChallengeChoicePool(words: WordData[]): WordData[] {
   return words;

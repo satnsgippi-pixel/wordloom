@@ -269,9 +269,6 @@ if (mode === "challenge") {
         return <Stage2SentenceAudio key={`${currentWord.id}-${currentStage}`} {...commonProps} />
       case 3:
         return <Stage3JaEnType key={`${currentWord.id}-${currentStage}`} {...commonProps} />
-      case 4:
-        // Stage4 は廃止：stage4 の場合は stage5 にスキップ（既存データ互換性のため）
-        return <Stage5ClozeSingle key={`${currentWord.id}-${currentStage}`} {...commonProps} />
       case 5:
         return <Stage5ClozeSingle key={`${currentWord.id}-${currentStage}`} {...commonProps} />
       case 6:
