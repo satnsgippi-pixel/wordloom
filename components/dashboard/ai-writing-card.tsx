@@ -77,37 +77,37 @@ export function AiWritingCard() {
         </h3>
         <span className="text-xs text-[#6B7280]">Today</span>
       </div>
-
+  
       {!target ? (
         <p className="text-sm text-[#6B7280]">
           単語がありません。先に単語を登録してください。
         </p>
       ) : (
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
           {/* 単語表示 */}
           <div className="min-w-0 flex-1">
-            <div className="flex items-baseline gap-2 min-w-0">
-              <p className="text-sm text-[#111827] truncate">
+            <div className="min-w-0 flex flex-col gap-1">
+              <p className="text-sm text-[#111827] whitespace-normal break-words">
                 今日の単語:{" "}
                 <span className="font-semibold">{target.word}</span>
               </p>
-              <p className="text-xs text-[#6B7280] truncate">
+              <p className="text-xs text-[#6B7280] whitespace-normal break-words">
                 {target.meaning}
               </p>
             </div>
           </div>
-
-          {/* 🔄 シャッフル */}
-          <button
-            onClick={handleShuffle}
-            title="別の単語にする"
-            className="h-8 w-8 flex items-center justify-center rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#EFF6FF] hover:text-[#2563EB] transition-colors"
-          >
-            <RefreshCw size={14} />
-          </button>
-
-          {/* Actions */}
+  
+          {/* 右側：操作（モバイルでは下段、sm以上は右側） */}
           <div className="flex items-center gap-2 shrink-0">
+            {/* 🔄 シャッフル */}
+            <button
+              onClick={handleShuffle}
+              title="別の単語にする"
+              className="h-8 w-8 flex items-center justify-center rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#EFF6FF] hover:text-[#2563EB] transition-colors"
+            >
+              <RefreshCw size={14} />
+            </button>
+  
             <button
               onClick={handleCopy}
               disabled={!copyText}
@@ -115,7 +115,7 @@ export function AiWritingCard() {
             >
               {copied ? "Copied" : "Copy"}
             </button>
-
+  
             <button
               onClick={handleOpenGpt}
               className="h-9 px-3 bg-white border border-[#E5E7EB] rounded-lg flex items-center justify-center text-sm font-medium text-[#111827] hover:bg-[#EFF6FF] active:bg-[#DBEAFE] transition-colors focus:outline-none focus:ring-2 focus:ring-[#93C5FD]"
@@ -127,4 +127,4 @@ export function AiWritingCard() {
       )}
     </div>
   )
-}
+}   
