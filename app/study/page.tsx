@@ -1,17 +1,13 @@
-"use client";
-
-import { useSearchParams } from "next/navigation";
-import { StudyScreen } from "@/components/study/study-screen";
+// app/study/page.tsx
+import { Suspense } from "react";
+import StudyClient from "./study-client";
 
 export default function StudyPage() {
-  const searchParams = useSearchParams();
-  const limitParam = searchParams.get("limit");
-  const initialLimit =
-    limitParam != null ? Math.min(100, Math.max(20, parseInt(limitParam, 10) || 20)) : undefined;
-
   return (
     <main className="min-h-screen bg-zinc-50">
-      <StudyScreen initialLimit={initialLimit} />
+      <Suspense fallback={<div className="p-4 text-sm text-neutral-500">Loading…</div>}>
+        <StudyClient />
+      </Suspense>
     </main>
   );
 }
