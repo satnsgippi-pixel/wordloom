@@ -17,85 +17,83 @@ function normalizeAnswer(text: string): string {
     .replace(/[^\w\s’'-]/g, "") // 軽めに記号無視
 }
 
+const MIN_STAGE6_BLANKS = 2
+
 function pickStage6Sentence(wordData: WordData): SentenceData | null {
   const list = wordData.sentences ?? []
   if (list.length === 0) return null
 
-  // ✅ word: 3つ必須 / phrase: 2つ以上
-  const need = wordData.entryType === "phrase" ? 2 : 3
-
   const candidates = list.filter((s) => {
     const idxs = s?.s6?.blankTokenIndexes ?? []
-    return Array.isArray(idxs) && idxs.length >= need && (s.tokens?.length ?? 0) > 0
+    return Array.isArray(idxs) && idxs.length >= MIN_STAGE6_BLANKS && (s.tokens?.length ?? 0) > 0
   })
 
   if (candidates.length === 0) return null
   return candidates[Math.floor(Math.random() * candidates.length)]
 }
 
+function blankMarkers(n: number): string[] {
+  const labels = ["¹", "²", "³", "⁴", "⁵", "⁶", "⁷", "⁸", "⁹", "⁺"]
+  return Array.from({ length: n }, (_, i) => `____${labels[i] ?? String(i + 1)}`)
+}
+
 export function Stage6ClozeMultiple({ wordData, onAnswer, disabled }: Stage6Props) {
-  const [answers, setAnswers] = useState<Record<number, string>>({ 1: "", 2: "", 3: "" })
+  const currentSentence: SentenceData | null = useMemo(
+    () => pickStage6Sentence(wordData),
+    [wordData.id]
+  )
+
+  const blankIdxs = useMemo(
+    () => (currentSentence?.s6?.blankTokenIndexes ?? []).filter(
+      (i) => typeof i === "number" && Number.isFinite(i)
+    ),
+    [currentSentence]
+  )
+  const need = blankIdxs.length
+
+  const [answers, setAnswers] = useState<Record<number, string>>({})
   const [showJa, setShowJa] = useState(false)
 
-  // ✅ 1問中固定の例文
-  const currentSentence: SentenceData | null = useMemo(() => {
-    return pickStage6Sentence(wordData)
-  }, [wordData.id])
-
-  // wordData.id が変わったら初期化
   useEffect(() => {
     setShowJa(false)
-    setAnswers({ 1: "", 2: "", 3: "" })
+    setAnswers({})
   }, [wordData.id])
 
-  const need = wordData.entryType === "phrase" ? 2 : 3
-  const blankIdxs = (currentSentence?.s6?.blankTokenIndexes ?? []).slice(0, need)
-
   const correctAnswers = useMemo(() => {
-    if (!currentSentence) return []
-    if (!Array.isArray(blankIdxs) || blankIdxs.length < need) return []
+    if (!currentSentence || need < MIN_STAGE6_BLANKS) return []
     return blankIdxs.map((i) => currentSentence.tokens?.[i] ?? "")
   }, [currentSentence, need, blankIdxs])
 
   const clozeSentence = useMemo(() => {
-    if (!currentSentence) return null
-    if (correctAnswers.length < need) return null
-
-    const markers = ["____¹", "____²", "____³"]
+    if (!currentSentence || need < MIN_STAGE6_BLANKS) return null
+    const markers = blankMarkers(need)
     const markerMap = new Map<number, string>()
     blankIdxs.forEach((idx, order) => markerMap.set(idx, markers[order] ?? "____"))
-
-    // tokensを表示しつつ、対象だけmarkerに差し替え
     const rendered = (currentSentence.tokens ?? []).map((t, i) =>
       markerMap.has(i) ? markerMap.get(i)! : t
     )
-
-    // tokenizeの方針的に空白を入れても崩れにくい（簡易join）
     return rendered.join(" ")
-  }, [currentSentence, blankIdxs, correctAnswers, need])
+  }, [currentSentence, blankIdxs, need])
 
-  const handleChange = (index: number, value: string) => {
-    setAnswers((prev) => ({ ...prev, [index]: value }))
+  const handleChange = (order: number, value: string) => {
+    setAnswers((prev) => ({ ...prev, [order]: value }))
   }
 
   const isSubmitDisabled =
     disabled ||
-    (need >= 1 && !answers[1]?.trim()) ||
-    (need >= 2 && !answers[2]?.trim()) ||
-    (need >= 3 && !answers[3]?.trim())
+    need < MIN_STAGE6_BLANKS ||
+    correctAnswers.some((_, i) => !(answers[i + 1] ?? "").trim())
 
   const handleSubmit = () => {
     if (isSubmitDisabled) return
-
-    const user = [answers[1], answers[2], answers[3]].slice(0, need)
+    const user = Array.from({ length: need }, (_, i) => answers[i + 1] ?? "")
     const ok =
       user.length === correctAnswers.length &&
       user.every((a, i) => normalizeAnswer(a) === normalizeAnswer(correctAnswers[i] ?? ""))
-
     onAnswer(user.join(", "), ok)
   }
 
-  if (!currentSentence || !clozeSentence || correctAnswers.length < need || correctAnswers.some((x) => !x)) {
+  if (!currentSentence || need < MIN_STAGE6_BLANKS || !clozeSentence || correctAnswers.some((x) => !x)) {
     return (
       <div>
         <p className="text-xs font-medium text-[#6B7280] uppercase tracking-wide mb-2">
@@ -132,13 +130,13 @@ export function Stage6ClozeMultiple({ wordData, onAnswer, disabled }: Stage6Prop
       </div>
 
       <div className="mt-6 space-y-4">
-        {[1, 2, 3].slice(0, need).map((index) => (
-          <div key={index}>
-            <label className="text-sm font-medium text-[#6B7280] mb-1 block">({index})</label>
+        {Array.from({ length: need }, (_, i) => i + 1).map((order) => (
+          <div key={order}>
+            <label className="text-sm font-medium text-[#6B7280] mb-1 block">({order})</label>
             <input
               type="text"
-              value={answers[index] ?? ""}
-              onChange={(e) => handleChange(index, e.target.value)}
+              value={answers[order] ?? ""}
+              onChange={(e) => handleChange(order, e.target.value)}
               placeholder="Type your answer"
               disabled={disabled}
               className={`w-full px-4 py-3 text-base text-[#111827] bg-white border border-[#E5E7EB] rounded-lg min-h-[48px] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#93C5FD] focus:border-transparent ${

@@ -9,8 +9,15 @@ import { QAPanel } from "@/components/shared/qa-panel"
 const WORD_QA_GPT_URL =
   "https://chatgpt.com/g/g-6978a7ff1f948191a23d1fe42441feee-ying-yu-huresushen-jue-ri-q-a"
 
+const INITIAL_EXAMPLES = 2
+
 export function WordDetailCard({ word }: { word: WordData }) {
   const [tab, setTab] = useState<"examples" | "qa">("examples")
+  const [visibleCount, setVisibleCount] = useState(INITIAL_EXAMPLES)
+
+  const examples = word.sentences ?? []
+  const visible = examples.slice(0, visibleCount)
+  const hasMore = examples.length > visibleCount
 
   return (
     <div className="bg-white rounded-xl border border-[#E5E7EB] p-4 md:p-5 shadow-sm">
@@ -51,7 +58,7 @@ export function WordDetailCard({ word }: { word: WordData }) {
       <div className="min-h-[160px]">
         {tab === "examples" && (
           <div className="space-y-3">
-            {(word.sentences ?? []).map((s, idx) => (
+            {visible.map((s, idx) => (
               <div
                 key={s.id ?? idx}
                 className="p-3 rounded-lg bg-white border border-[#E5E7EB]"
@@ -71,8 +78,20 @@ export function WordDetailCard({ word }: { word: WordData }) {
               </div>
             ))}
 
-            {(word.sentences ?? []).length === 0 && (
+            {examples.length === 0 && (
               <p className="text-sm text-[#6B7280]">No examples</p>
+            )}
+
+            {hasMore && (
+              <button
+                type="button"
+                onClick={() =>
+                  setVisibleCount((v) => Math.min(v + 10, examples.length))
+                }
+                className="w-full py-3 text-base font-medium text-[#2563EB] bg-[#EFF6FF] rounded-lg hover:bg-[#DBEAFE] transition-colors min-h-[48px] focus:outline-none focus:ring-2 focus:ring-[#93C5FD] focus:ring-offset-2"
+              >
+                +10 more
+              </button>
             )}
           </div>
         )}

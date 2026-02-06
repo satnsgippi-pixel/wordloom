@@ -16,7 +16,7 @@ export type SentenceData = {
   // Stage5（word用：通常1つ）
   s5?: { targetTokenIndexes: number[] };
 
-  // Stage6（word: 3固定 / phrase: 2以上・上限なし）
+  // Stage6（word / phrase 共通: 2以上・任意個）
   s6?: { blankTokenIndexes: number[] };
 };
 

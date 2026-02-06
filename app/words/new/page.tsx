@@ -116,9 +116,6 @@ export default function NewWordPage() {
         if (current.includes(tokenIndex)) {
           return { ...s, s6Indices: current.filter((x) => x !== tokenIndex) };
         }
-        if (entryType === "word" && current.length >= 3) {
-          return s;
-        }
         return {
           ...s,
           s6Indices: [...current, tokenIndex].sort((a, b) => a - b),
@@ -154,7 +151,7 @@ export default function NewWordPage() {
 
   const allClozeOk = sentencesDraft.every((s) => {
     if (entryType === "word") {
-      return s.s5Index !== null && s.s6Indices.length === 3;
+      return s.s5Index !== null && s.s6Indices.length >= 2;
     } else {
       return s.s6Indices.length >= 2;
     }
@@ -243,7 +240,7 @@ export default function NewWordPage() {
             </button>
           </div>
           <p className="mt-2 text-xs text-[#9CA3AF]">
-            word: Stage5(1 token) + Stage6(3 tokens) / phrase: Stage6(2+ tokens)
+            word: Stage5(1 token) + Stage6(2+ tokens) / phrase: Stage6(2+ tokens)
           </p>
         </div>
 
@@ -451,7 +448,7 @@ function SentenceBlock({
               entryType === "word" ? "mt-4" : ""
             }`}
           >
-            Stage6: tokensを選択（wordは3つ、phraseは2つ以上）
+            Stage6: tokensを選択（2つ以上）
           </p>
 
           <div className="flex flex-wrap gap-2">

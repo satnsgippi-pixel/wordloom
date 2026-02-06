@@ -56,6 +56,16 @@ export function TodayStudyCard({ progress, goal, dueNow, overdue, next3Days }: T
       >
         {isComplete ? "+10" : "Continue Study"}
       </Link>
+
+      {/* +10 more: 問題が残っているときだけ表示 */}
+      {dueNow + overdue > 20 && (
+        <Link
+          href="/study?limit=30"
+          className="mt-3 block w-full h-11 bg-[#EFF6FF] hover:bg-[#DBEAFE] text-[#2563EB] font-medium rounded-lg flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-[#93C5FD] focus:ring-offset-2"
+        >
+          +10 more
+        </Link>
+      )}
     </div>
   )
 }

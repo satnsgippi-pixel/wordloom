@@ -16,10 +16,6 @@ interface ResultCardProps {
   wordData: WordData
   onNext: () => void
   isLastQuestion?: boolean
-
-  // Normal "+10 more" 用（StudyScreen側で渡している）
-  onMore?: () => void
-  canMore?: boolean
 }
 
 export function ResultCard({
@@ -28,8 +24,6 @@ export function ResultCard({
   wordData,
   onNext,
   isLastQuestion = false,
-  onMore,
-  canMore = false,
 }: ResultCardProps) {
   const [activeTab, setActiveTab] = useState<"examples" | "qa">("examples")
 
@@ -43,7 +37,10 @@ export function ResultCard({
     setActiveTab("examples")
   }, [wordData.id])
 
-  const sentences: SentenceData[] = useMemo(() => wordData.sentences ?? [], [wordData])
+  const sentences: SentenceData[] = useMemo(
+    () => (wordData.sentences ?? []).slice(0, 2),
+    [wordData]
+  )
 
   return (
     <div className="mt-4 bg-white rounded-xl border border-[#E5E7EB] p-4 md:p-5 shadow-sm">
@@ -136,16 +133,6 @@ export function ResultCard({
 
       {/* Action buttons */}
       <div className="mt-6 space-y-3">
-        {/* ✅ Normal "+10 more"（最後の問題のときだけ表示） */}
-        {!isLastQuestion && onMore && canMore && (
-          <button
-            onClick={onMore}
-            className="w-full py-3 text-base font-medium text-[#2563EB] bg-[#EFF6FF] rounded-lg hover:bg-[#DBEAFE] transition-colors min-h-[48px] focus:outline-none focus:ring-2 focus:ring-[#93C5FD] focus:ring-offset-2"
-          >
-            +10 more
-          </button>
-        )}
-
         <button
           onClick={onNext}
           className="w-full py-3 text-base font-medium text-white bg-[#2563EB] rounded-lg hover:bg-[#1D4ED8] transition-colors min-h-[48px] focus:outline-none focus:ring-2 focus:ring-[#93C5FD] focus:ring-offset-2"

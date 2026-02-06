@@ -47,12 +47,16 @@ function clampStage(stage: number, list: readonly number[]) {
   return Math.max(min, Math.min(max, stage))
 }
 
+const DEFAULT_LIMIT = 20
+
 type Props = {
   mode?: StudyMode
+  initialLimit?: number
 }
 
-export function StudyScreen({ mode = "normal" }: Props) {
+export function StudyScreen({ mode = "normal", initialLimit }: Props) {
   const router = useRouter()
+  const limit = initialLimit ?? DEFAULT_LIMIT
 
   const [queue, setQueue] = useState<WordData[]>([])
   const [qIndex, setQIndex] = useState(0)
@@ -61,10 +65,6 @@ export function StudyScreen({ mode = "normal" }: Props) {
   const [answer, setAnswer] = useState<string | null>(null)
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null)
   const [showResult, setShowResult] = useState(false)
-
-  // ✅ Normal "+10 more" 用
-  const [normalPickedIds, setNormalPickedIds] = useState<Set<string>>(new Set())
-  const [canMore, setCanMore] = useState(false)
 
   const currentWord: WordData | null = useMemo(() => {
     if (queue.length === 0) return null
@@ -98,8 +98,6 @@ export function StudyScreen({ mode = "normal" }: Props) {
       setQueue([])
       setQIndex(0)
       setProgress({ current: 1, total: 0 })
-      setNormalPickedIds(new Set())
-      setCanMore(false)
       return
     }
 
@@ -110,9 +108,6 @@ export function StudyScreen({ mode = "normal" }: Props) {
       setQueue(picked)
       setQIndex(0)
       setProgress({ current: 1, total: picked.length })
-
-      setNormalPickedIds(new Set())
-      setCanMore(false)
       return
     }
 
@@ -134,20 +129,14 @@ export function StudyScreen({ mode = "normal" }: Props) {
       return
     }    
     
-    // ✅ Normal: dueAt <= now のみ（最大20）
+    // Normal: dueAt <= now のみ（最大 limit、Dashboard の +10 more で 30 など）
     const dueWords = words.filter((w) => getDueAtSafe(w) <= now)
-    const first = shuffle(dueWords).slice(0, 20)
+    const first = shuffle(dueWords).slice(0, limit)
 
     setQueue(first)
     setQIndex(0)
     setProgress({ current: 1, total: first.length })
-
-    // ✅ すでに出したIDを記録（+10 more の重複防止）
-    setNormalPickedIds(new Set(first.map((w) => w.id)))
-
-    // ✅ 追加できるか（残りのdueがあるか）
-    setCanMore(dueWords.length > first.length)
-  }, [mode])
+  }, [mode, limit])
 
   const handleAnswer = (_: string, correct: boolean) => {
     setIsCorrect(correct)
@@ -181,34 +170,6 @@ if (mode === "challenge") {
       ...p,
       current: Math.min(p.current + 1, p.total),
     }))
-  }
-
-  // ✅ Normal: +10 more
-  const handleMore = () => {
-    if (mode !== "normal") return
-
-    const words = getWords()
-    const now = Date.now()
-    const dueWords = words.filter((w) => getDueAtSafe(w) <= now)
-
-    const remaining = dueWords.filter((w) => !normalPickedIds.has(w.id))
-    const add = shuffle(remaining).slice(0, 10)
-
-    if (add.length === 0) {
-      setCanMore(false)
-      return
-    }
-
-    setQueue((prev) => [...prev, ...add])
-    setProgress((p) => ({ ...p, total: p.total + add.length }))
-
-    setNormalPickedIds((prev) => {
-      const next = new Set(prev)
-      add.forEach((w) => next.add(w.id))
-      return next
-    })
-
-    setCanMore(remaining.length > add.length)
   }
 
   const renderEmpty = (message: string, ctaHref: string, ctaLabel: string) => {
@@ -292,8 +253,6 @@ if (mode === "challenge") {
             correctAnswer={currentWord.word}
             wordData={currentWord}
             isLastQuestion={isLastQuestion}
-            onMore={mode === "normal" ? handleMore : undefined}
-            canMore={mode === "normal" ? canMore : false}
             onNext={() => {
               if (isLastQuestion) {
                 router.push("/")
