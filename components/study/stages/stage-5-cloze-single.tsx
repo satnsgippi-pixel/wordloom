@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import type { WordData, SentenceData } from "@/lib/types"
+import Link from "next/link"
 
 interface Stage5Props {
   wordData: WordData
@@ -37,8 +38,37 @@ export function Stage5ClozeSingle({ wordData, onAnswer, disabled }: Stage5Props)
   }, [wordData.id])
 
   if (!sentence || targetIndex == null) {
-    return <p className="text-sm text-zinc-500">Cloze が設定されていません。</p>
-  }
+    return (
+      <div>
+        <p className="text-xs font-medium text-[#6B7280] uppercase tracking-wide mb-2">
+          Cloze (Single)
+        </p>
+  
+        <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <p className="text-sm text-yellow-800 mb-2">Cloze が未設定です</p>
+  
+          {/* どの単語か分かるように */}
+          <p className="text-sm text-[#111827] font-semibold">{wordData.word}</p>
+          {wordData.meaning && (
+            <p className="text-xs text-[#6B7280] mt-1">{wordData.meaning}</p>
+          )}
+  
+          <p className="text-xs text-yellow-700 mt-2">
+            編集画面で Stage5 の穴埋め（1つ）を設定してください。
+          </p>
+  
+          <div className="mt-3">
+            <Link
+              href={`/words/${wordData.id}/edit?from=study`}
+              className="h-9 px-3 inline-flex items-center justify-center rounded-lg bg-white border border-yellow-200 text-sm font-medium text-yellow-900 hover:bg-yellow-100 transition-colors"
+            >
+              この単語を編集する
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
+  }  
 
   const correctToken = sentence.tokens[targetIndex] ?? ""
 
