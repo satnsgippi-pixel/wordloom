@@ -28,7 +28,9 @@ export type StudyMode = "normal" | "weakness" | "quiz" | "challenge"
 
 const WORD_STAGES = [0, 1, 2, 3, 5, 6, 7] as const
 const PHRASE_STAGES = [0, 1, 2, 3, 6, 7] as const
-type ActiveStage = (typeof WORD_STAGES)[number]
+
+// ✅ phrase/word 両方を含むステージ型にする（cast地獄を減らす）
+type ActiveStage = (typeof WORD_STAGES)[number] | (typeof PHRASE_STAGES)[number]
 
 // util
 function shuffle<T>(arr: T[]): T[] {
@@ -78,8 +80,15 @@ export function StudyScreen({ mode = "normal", initialLimit }: Props) {
       return currentWord.weakness.stage as ActiveStage
     }
 
-    const list = currentWord.entryType === "phrase" ? PHRASE_STAGES : WORD_STAGES
-    return clampStage(currentWord.currentStage ?? 0, list) as ActiveStage
+    const isPhrase = currentWord.entryType === "phrase"
+    const list = isPhrase ? PHRASE_STAGES : WORD_STAGES
+
+    let stage = clampStage(currentWord.currentStage ?? 0, list)
+
+    // ✅ phrase は stage5 を持たない：誤データや古いデータがあっても 6 に寄せる
+    if (isPhrase && stage === 5) stage = 6
+
+    return stage as ActiveStage
   }, [currentWord, mode])
 
   // ✅ 問題が切り替わるたびにUI状態をリセット
@@ -113,22 +122,22 @@ export function StudyScreen({ mode = "normal", initialLimit }: Props) {
 
     if (mode === "challenge") {
       const now = Date.now()
-    
+
       const targets = words.filter(
         (w) =>
           (w.stability ?? 0) >= 12 &&
           !w.weakness &&
           getDueAtSafe(w) > now
       )
-    
+
       const picked = shuffle(targets).slice(0, 10)
-    
+
       setQueue(picked)
       setQIndex(0)
       setProgress({ current: 1, total: picked.length })
       return
-    }    
-    
+    }
+
     // Normal: dueAt <= now のみ（最大 limit、Dashboard の +10 more で 30 など）
     const dueWords = words.filter((w) => getDueAtSafe(w) <= now)
     const first = shuffle(dueWords).slice(0, limit)
@@ -141,11 +150,11 @@ export function StudyScreen({ mode = "normal", initialLimit }: Props) {
   const handleAnswer = (_: string, correct: boolean) => {
     setIsCorrect(correct)
     setShowResult(true)
-  
-if (mode === "challenge") {
-  // 何もしない（音・UIだけ）
-  return
-}
+
+    if (mode === "challenge") {
+      // 何もしない（音・UIだけ）
+      return
+    }
 
     // ✅ 今日の進捗 +1
     incrementTodayProgress(1)
@@ -155,13 +164,13 @@ if (mode === "challenge") {
     if (mode === "weakness") {
       correct
         ? markWeaknessCorrect(currentWord.id)
-        : markWeaknessWrong(currentWord.id, currentStage)
+        : markWeaknessWrong(currentWord.id, currentStage as any)
       return
     }
 
     correct
       ? markNormalCorrect(currentWord.id)
-      : markNormalWrong(currentWord.id, currentStage)
+      : markNormalWrong(currentWord.id, currentStage as any)
   }
 
   const handleNext = () => {
@@ -231,6 +240,10 @@ if (mode === "challenge") {
       case 3:
         return <Stage3JaEnType key={`${currentWord.id}-${currentStage}`} {...commonProps} />
       case 5:
+        // ✅ 念のため：phrase が迷い込んでも stage6 に逃がす
+        if (currentWord.entryType === "phrase") {
+          return <Stage6ClozeMultiple key={`${currentWord.id}-6`} {...commonProps} />
+        }
         return <Stage5ClozeSingle key={`${currentWord.id}-${currentStage}`} {...commonProps} />
       case 6:
         return <Stage6ClozeMultiple key={`${currentWord.id}-${currentStage}`} {...commonProps} />
