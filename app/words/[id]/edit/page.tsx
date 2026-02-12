@@ -18,7 +18,7 @@ type SentenceDraft = {
   en: string;
   ja: string;
   tokens: string[];
-  s5Index: number | null;
+  s5Indices: number[]; // ✅ 複数対応（wordは実質1個、phraseは2+）
   s6Indices: number[];
   hasEditedEn: boolean;
   hadClozeBeforeEdit: boolean;
@@ -41,7 +41,7 @@ export default function EditWordPage() {
       en: "",
       ja: "",
       tokens: [],
-      s5Index: null,
+      s5Indices: [],
       s6Indices: [],
       hasEditedEn: false,
       hadClozeBeforeEdit: false,
@@ -67,7 +67,7 @@ export default function EditWordPage() {
         en: s.en ?? "",
         ja: s.ja ?? "",
         tokens: (s.tokens?.length ? s.tokens : tokenize(s.en ?? "")) ?? [],
-        s5Index: s.s5?.targetTokenIndexes?.[0] ?? null,
+        s5Indices: s.s5?.targetTokenIndexes ?? [],
         s6Indices: s.s6?.blankTokenIndexes ?? [],
         hasEditedEn: false,
         hadClozeBeforeEdit: false,
@@ -87,7 +87,7 @@ export default function EditWordPage() {
           en: legacyEn,
           ja: legacyJa,
           tokens: tokenize(legacyEn),
-          s5Index: null,
+          s5Indices: [],
           s6Indices: [],
           hasEditedEn: false,
           hadClozeBeforeEdit: false,
@@ -100,7 +100,7 @@ export default function EditWordPage() {
 
   const notFound = useMemo(() => loaded && !original, [loaded, original]);
 
-  // ---- sentence ops (same as /words/new) ----
+  // ---- sentence ops ----
   const addSentence = () => {
     setSentencesDraft((prev) => [
       ...prev,
@@ -109,7 +109,7 @@ export default function EditWordPage() {
         en: "",
         ja: "",
         tokens: [],
-        s5Index: null,
+        s5Indices: [],
         s6Indices: [],
         hasEditedEn: false,
         hadClozeBeforeEdit: false,
@@ -130,7 +130,8 @@ export default function EditWordPage() {
         const tokens = tokenize(value);
 
         // “英文を編集したら tokens/cloze を選び直す”
-        const hadCloze = s.hasEditedEn && (s.s5Index !== null || s.s6Indices.length > 0);
+        const hadCloze =
+          s.hasEditedEn && (s.s5Indices.length > 0 || s.s6Indices.length > 0);
 
         return {
           ...s,
@@ -138,7 +139,7 @@ export default function EditWordPage() {
           tokens,
           hasEditedEn: true,
           hadClozeBeforeEdit: hadCloze,
-          s5Index: hadCloze ? null : s.s5Index,
+          s5Indices: hadCloze ? [] : s.s5Indices,
           s6Indices: hadCloze ? [] : s.s6Indices,
         };
       })
@@ -151,18 +152,29 @@ export default function EditWordPage() {
     );
   };
 
+  // ✅ Stage5: wordは1個だけ、phraseは2つ以上選べる（トグル）
   const toggleS5 = (sid: string, tokenIndex: number) => {
     setSentencesDraft((prev) =>
       prev.map((s) => {
         if (s.id !== sid) return s;
-        return {
-          ...s,
-          s5Index: s.s5Index === tokenIndex ? null : tokenIndex,
-        };
+
+        // 既に含まれていたら外す
+        if (s.s5Indices.includes(tokenIndex)) {
+          return { ...s, s5Indices: s.s5Indices.filter((i) => i !== tokenIndex) };
+        }
+
+        // wordは1個だけ（置き換え）
+        if (entryType === "word") {
+          return { ...s, s5Indices: [tokenIndex] };
+        }
+
+        // phraseは追加（昇順）
+        return { ...s, s5Indices: [...s.s5Indices, tokenIndex].sort((a, b) => a - b) };
       })
     );
   };
 
+  // Stage6: 2つ以上、任意個（トグル）
   const toggleS6 = (sid: string, tokenIndex: number) => {
     setSentencesDraft((prev) =>
       prev.map((s) => {
@@ -182,13 +194,13 @@ export default function EditWordPage() {
     );
   };
 
-  // Entry type変更時に全例文clozeをリセット（newと同じ）
+  // Entry type変更時に全例文clozeをリセット
   const handleEntryTypeChange = (newType: EntryType) => {
     setEntryType(newType);
     setSentencesDraft((prev) =>
       prev.map((s) => ({
         ...s,
-        s5Index: null,
+        s5Indices: [],
         s6Indices: [],
         hadClozeBeforeEdit: false,
       }))
@@ -196,20 +208,20 @@ export default function EditWordPage() {
   };
 
   // ---- validation ----
-  const baseOk =
-    word.trim().length > 0 &&
-    meaning.trim().length > 0;
+  const baseOk = word.trim().length > 0 && meaning.trim().length > 0;
 
   const allSentencesOk = sentencesDraft.every(
     (s) => s.en.trim().length > 0 && s.ja.trim().length > 0 && s.tokens.length > 0
   );
 
+  // 方針②：
+  // word: s5=1つ必須 + s6=2つ以上
+  // phrase: s5=2つ以上必須 + s6=2つ以上
   const allClozeOk = sentencesDraft.every((s) => {
-    if (entryType === "word") {
-      return s.s5Index !== null && s.s6Indices.length >= 2;
-    } else {
-      return s.s6Indices.length >= 2;
-    }
+    const s6ok = s.s6Indices.length >= 2;
+    const s5need = entryType === "phrase" ? 2 : 1;
+    const s5ok = s.s5Indices.length >= s5need;
+    return s5ok && s6ok;
   });
 
   const canSave = baseOk && allSentencesOk && allClozeOk;
@@ -230,10 +242,7 @@ export default function EditWordPage() {
         en: s.en.trim(),
         ja: s.ja.trim(),
         tokens: s.tokens,
-        s5:
-          entryType === "word" && s.s5Index !== null
-            ? { targetTokenIndexes: [s.s5Index] }
-            : undefined,
+        s5: s.s5Indices.length > 0 ? { targetTokenIndexes: s.s5Indices } : undefined,
         s6: s.s6Indices.length > 0 ? { blankTokenIndexes: s.s6Indices } : undefined,
       })),
       createdAt: original.createdAt ?? now,
@@ -319,7 +328,7 @@ export default function EditWordPage() {
             </button>
           </div>
           <p className="mt-2 text-xs text-[#9CA3AF]">
-            word: Stage5(1 token) + Stage6(2+ tokens) / phrase: Stage6(2+ tokens)
+            word: Stage5(1 token) + Stage6(2+ tokens) / phrase: Stage5(2+ tokens) + Stage6(2+ tokens)
           </p>
         </div>
 
@@ -428,15 +437,17 @@ function SentenceBlock({
   onRemove,
 }: SentenceBlockProps) {
   const stage5Preview = useMemo(() => {
-    if (entryType !== "word") return "";
-    if (sentence.s5Index === null) return "";
-    return buildClozePreview(sentence.tokens, [sentence.s5Index]);
-  }, [entryType, sentence.s5Index, sentence.tokens]);
+    const need = entryType === "phrase" ? 2 : 1;
+    if (sentence.s5Indices.length < need) return "";
+    return buildClozePreview(sentence.tokens, sentence.s5Indices);
+  }, [entryType, sentence.s5Indices, sentence.tokens]);
 
   const stage6Preview = useMemo(() => {
     if (sentence.s6Indices.length === 0) return "";
     return buildClozePreview(sentence.tokens, sentence.s6Indices);
   }, [sentence.s6Indices, sentence.tokens]);
+
+  const s5Need = entryType === "phrase" ? 2 : 1;
 
   return (
     <div className="space-y-4">
@@ -498,34 +509,41 @@ function SentenceBlock({
             Cloze selection
           </h4>
 
-          {entryType === "word" && (
-            <div>
-              <p className="text-xs text-[#6B7280] mb-2">
-                Stage5（1 token）: ターゲットを1つ選択
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {sentence.tokens.map((t, i) => {
-                  const isS5 = sentence.s5Index === i;
-                  return (
-                    <button
-                      key={`s5-${t}-${i}`}
-                      type="button"
-                      onClick={() => onToggleS5(i)}
-                      className={`px-3 py-1 rounded-full border text-sm ${
-                        isS5
-                          ? "bg-blue-50 border-blue-300 text-blue-800"
-                          : "bg-white border-[#E5E7EB] text-[#111827]"
-                      }`}
-                    >
-                      {t}
-                    </button>
-                  );
-                })}
-              </div>
+          <div>
+            <p className="text-xs text-[#6B7280] mb-2">
+              Stage5（{entryType === "phrase" ? "2+ tokens" : "1 token"}）: ターゲットを選択
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {sentence.tokens.map((t, i) => {
+                const isS5 = sentence.s5Indices.includes(i);
+                const order = isS5 ? sentence.s5Indices.indexOf(i) + 1 : null;
+                return (
+                  <button
+                    key={`s5-${t}-${i}`}
+                    type="button"
+                    onClick={() => onToggleS5(i)}
+                    className={`px-3 py-1 rounded-full border text-sm ${
+                      isS5
+                        ? "bg-blue-50 border-blue-300 text-blue-800"
+                        : "bg-white border-[#E5E7EB] text-[#111827]"
+                    }`}
+                  >
+                    {t}
+                    {order !== null && (
+                      <span className="ml-2 text-xs text-blue-700">{order}</span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
-          )}
+            <p className="mt-2 text-[11px] text-[#9CA3AF]">
+              {entryType === "phrase"
+                ? "Stage5は2つ以上選択してください（語順は選択順で表示されます）"
+                : "Stage5は1つだけ選択できます"}
+            </p>
+          </div>
 
-          <p className={`text-xs text-[#6B7280] mb-4 ${entryType === "word" ? "mt-4" : ""}`}>
+          <p className="text-xs text-[#6B7280] mb-4 mt-4">
             Stage6: tokensを選択（2つ以上）
           </p>
 
@@ -536,7 +554,7 @@ function SentenceBlock({
 
               return (
                 <button
-                  key={`${t}-${i}`}
+                  key={`s6-${t}-${i}`}
                   type="button"
                   onClick={() => onToggleS6(i)}
                   className={`px-3 py-1 rounded-full border text-sm ${
@@ -558,9 +576,9 @@ function SentenceBlock({
 
       {/* Preview */}
       {sentence.tokens.length > 0 &&
-        (sentence.s5Index !== null || sentence.s6Indices.length > 0) && (
+        (sentence.s5Indices.length > 0 || sentence.s6Indices.length > 0) && (
           <div className="space-y-4">
-            {entryType === "word" && sentence.s5Index !== null && (
+            {sentence.s5Indices.length >= s5Need && (
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-sm font-medium text-blue-800 mb-2">
                   Stage5 Preview

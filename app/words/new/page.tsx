@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { EntryType, WordData } from "@/lib/types";
 import { upsertWord } from "@/lib/storage";
@@ -18,8 +18,8 @@ type SentenceDraft = {
   en: string;
   ja: string;
   tokens: string[];
-  s5Index: number | null;
-  s6Indices: number[];
+  s5Indices: number[]; // ✅ word=1つ / phrase=2つ以上
+  s6Indices: number[]; // ✅ 2つ以上
   hasEditedEn: boolean;
   hadClozeBeforeEdit: boolean;
 };
@@ -37,14 +37,14 @@ export default function NewWordPage() {
       en: "",
       ja: "",
       tokens: [],
-      s5Index: null,
+      s5Indices: [],
       s6Indices: [],
       hasEditedEn: false,
       hadClozeBeforeEdit: false,
     },
   ]);
 
-  // 例文ブロック追加
+  // 例文追加
   const addSentence = () => {
     setSentencesDraft((prev) => [
       ...prev,
@@ -53,7 +53,7 @@ export default function NewWordPage() {
         en: "",
         ja: "",
         tokens: [],
-        s5Index: null,
+        s5Indices: [],
         s6Indices: [],
         hasEditedEn: false,
         hadClozeBeforeEdit: false,
@@ -61,112 +61,117 @@ export default function NewWordPage() {
     ]);
   };
 
-  // 例文ブロック削除
-  const removeSentence = (id: string) => {
+  // 例文削除
+  const removeSentence = (sid: string) => {
     if (sentencesDraft.length <= 1) return;
-    setSentencesDraft((prev) => prev.filter((s) => s.id !== id));
+    setSentencesDraft((prev) => prev.filter((s) => s.id !== sid));
   };
 
-  // 例文の英文更新
-  const updateSentenceEn = (id: string, value: string) => {
+  // 英文更新（tokenize + 既にcloze選択済ならリセット促す）
+  const updateSentenceEn = (sid: string, value: string) => {
     setSentencesDraft((prev) =>
       prev.map((s) => {
-        if (s.id !== id) return s;
+        if (s.id !== sid) return s;
+
         const tokens = tokenize(value);
-        const hadCloze = s.hasEditedEn && (s.s5Index !== null || s.s6Indices.length > 0);
+
+        const hadCloze =
+          s.hasEditedEn && (s.s5Indices.length > 0 || s.s6Indices.length > 0);
+
         return {
           ...s,
           en: value,
           tokens,
           hasEditedEn: true,
           hadClozeBeforeEdit: hadCloze,
-          s5Index: hadCloze ? null : s.s5Index,
+          s5Indices: hadCloze ? [] : s.s5Indices,
           s6Indices: hadCloze ? [] : s.s6Indices,
         };
       })
     );
   };
 
-  // 例文の日本語更新
-  const updateSentenceJa = (id: string, value: string) => {
+  // 日本語更新
+  const updateSentenceJa = (sid: string, value: string) => {
     setSentencesDraft((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, ja: value } : s))
+      prev.map((s) => (s.id === sid ? { ...s, ja: value } : s))
     );
   };
 
-  // Stage5トグル
-  const toggleS5 = (sentenceId: string, tokenIndex: number) => {
+  // Stage5 トグル（wordは1つ置換、phraseは追加トグル）
+  const toggleS5 = (sid: string, tokenIndex: number) => {
     setSentencesDraft((prev) =>
       prev.map((s) => {
-        if (s.id !== sentenceId) return s;
-        return {
-          ...s,
-          s5Index: s.s5Index === tokenIndex ? null : tokenIndex,
-        };
-      })
-    );
-  };
+        if (s.id !== sid) return s;
 
-  // Stage6トグル
-  const toggleS6 = (sentenceId: string, tokenIndex: number) => {
-    setSentencesDraft((prev) =>
-      prev.map((s) => {
-        if (s.id !== sentenceId) return s;
-        const current = s.s6Indices;
-        if (current.includes(tokenIndex)) {
-          return { ...s, s6Indices: current.filter((x) => x !== tokenIndex) };
+        if (s.s5Indices.includes(tokenIndex)) {
+          return { ...s, s5Indices: s.s5Indices.filter((i) => i !== tokenIndex) };
         }
-        return {
-          ...s,
-          s6Indices: [...current, tokenIndex].sort((a, b) => a - b),
-        };
+
+        if (entryType === "word") {
+          return { ...s, s5Indices: [tokenIndex] };
+        }
+
+        return { ...s, s5Indices: [...s.s5Indices, tokenIndex].sort((a, b) => a - b) };
       })
     );
   };
 
-  // Entry type変更時に全例文のclozeをリセット
+  // Stage6 トグル（任意個）
+  const toggleS6 = (sid: string, tokenIndex: number) => {
+    setSentencesDraft((prev) =>
+      prev.map((s) => {
+        if (s.id !== sid) return s;
+
+        if (s.s6Indices.includes(tokenIndex)) {
+          return { ...s, s6Indices: s.s6Indices.filter((i) => i !== tokenIndex) };
+        }
+
+        return { ...s, s6Indices: [...s.s6Indices, tokenIndex].sort((a, b) => a - b) };
+      })
+    );
+  };
+
+  // EntryType変更時：clozeリセット
   const handleEntryTypeChange = (newType: EntryType) => {
     setEntryType(newType);
     setSentencesDraft((prev) =>
       prev.map((s) => ({
         ...s,
-        s5Index: null,
+        s5Indices: [],
         s6Indices: [],
         hadClozeBeforeEdit: false,
       }))
     );
   };
 
-  // バリデーション
-  const baseOk =
-    word.trim().length > 0 &&
-    meaning.trim().length > 0;
+  // ---- validation ----
+  const baseOk = word.trim().length > 0 && meaning.trim().length > 0;
 
   const allSentencesOk = sentencesDraft.every(
-    (s) =>
-      s.en.trim().length > 0 &&
-      s.ja.trim().length > 0 &&
-      s.tokens.length > 0
+    (s) => s.en.trim().length > 0 && s.ja.trim().length > 0 && s.tokens.length > 0
   );
 
+  // 方針②：
+  // word: s5=1つ必須 + s6=2つ以上
+  // phrase: s5=2つ以上必須 + s6=2つ以上
   const allClozeOk = sentencesDraft.every((s) => {
-    if (entryType === "word") {
-      return s.s5Index !== null && s.s6Indices.length >= 2;
-    } else {
-      return s.s6Indices.length >= 2;
-    }
+    const s6ok = s.s6Indices.length >= 2;
+    const s5need = entryType === "phrase" ? 2 : 1;
+    const s5ok = s.s5Indices.length >= s5need;
+    return s5ok && s6ok;
   });
 
   const canSave = baseOk && allSentencesOk && allClozeOk;
 
-  // 保存処理
   const handleSave = () => {
     if (!canSave) return;
 
     const now = Date.now();
+    const id = uid();
 
     const newWord: WordData = {
-      id: uid(),
+      id,
       entryType,
       word: word.trim(),
       meaning: meaning.trim(),
@@ -175,26 +180,19 @@ export default function NewWordPage() {
         en: s.en.trim(),
         ja: s.ja.trim(),
         tokens: s.tokens,
-        s5:
-          entryType === "word" && s.s5Index !== null
-            ? { targetTokenIndexes: [s.s5Index] }
-            : undefined,
-        s6:
-          s.s6Indices.length > 0
-            ? { blankTokenIndexes: s.s6Indices }
-            : undefined,
+        s5: s.s5Indices.length > 0 ? { targetTokenIndexes: s.s5Indices } : undefined,
+        s6: s.s6Indices.length > 0 ? { blankTokenIndexes: s.s6Indices } : undefined,
       })),
       currentStage: 0,
       stageStreak: 0,
       stability: 1,
       dueAt: now,
-      weakness: undefined,
       createdAt: now,
       updatedAt: now,
     };
 
     upsertWord(newWord);
-    router.push("/words");
+    router.push(`/words/${id}`);
   };
 
   return (
@@ -206,7 +204,7 @@ export default function NewWordPage() {
             onClick={() => router.push("/words")}
             className="text-sm text-[#2563EB] hover:underline"
           >
-            Cancel
+            Back
           </button>
         </div>
 
@@ -240,7 +238,7 @@ export default function NewWordPage() {
             </button>
           </div>
           <p className="mt-2 text-xs text-[#9CA3AF]">
-            word: Stage5(1 token) + Stage6(2+ tokens) / phrase: Stage6(2+ tokens)
+            word: Stage5(1 token) + Stage6(2+ tokens) / phrase: Stage5(2+ tokens) + Stage6(2+ tokens)
           </p>
         </div>
 
@@ -253,7 +251,6 @@ export default function NewWordPage() {
             <input
               value={word}
               onChange={(e) => setWord(e.target.value)}
-              placeholder='例: affect / look forward to'
               className="w-full px-4 py-3 bg-white border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#93C5FD]"
             />
           </div>
@@ -265,7 +262,6 @@ export default function NewWordPage() {
             <input
               value={meaning}
               onChange={(e) => setMeaning(e.target.value)}
-              placeholder="例: 影響する"
               className="w-full px-4 py-3 bg-white border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#93C5FD]"
             />
           </div>
@@ -301,7 +297,7 @@ export default function NewWordPage() {
         </div>
 
         {/* Save */}
-        <div className="sticky bottom-0 bg-[#F9FAFB] pt-4 pb-4 border-t border-[#E5E7EB]">
+        <div className="sticky bottom-0 bg-[#F9FAFB] pt-4 pb-4 border-t border-[#E5E7EB] space-y-3">
           <button
             onClick={handleSave}
             disabled={!canSave}
@@ -342,11 +338,12 @@ function SentenceBlock({
   onToggleS6,
   onRemove,
 }: SentenceBlockProps) {
+  const s5Need = entryType === "phrase" ? 2 : 1;
+
   const stage5Preview = useMemo(() => {
-    if (entryType !== "word") return "";
-    if (sentence.s5Index === null) return "";
-    return buildClozePreview(sentence.tokens, [sentence.s5Index]);
-  }, [entryType, sentence.s5Index, sentence.tokens]);
+    if (sentence.s5Indices.length < s5Need) return "";
+    return buildClozePreview(sentence.tokens, sentence.s5Indices);
+  }, [s5Need, sentence.s5Indices, sentence.tokens]);
 
   const stage6Preview = useMemo(() => {
     if (sentence.s6Indices.length === 0) return "";
@@ -379,7 +376,6 @@ function SentenceBlock({
           <textarea
             value={sentence.en}
             onChange={(e) => onEnChange(e.target.value)}
-            placeholder="例: I look really forward to it."
             rows={3}
             className="w-full px-4 py-3 bg-white border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#93C5FD] resize-none"
           />
@@ -392,7 +388,6 @@ function SentenceBlock({
           <textarea
             value={sentence.ja}
             onChange={(e) => onJaChange(e.target.value)}
-            placeholder="例: それを本当に楽しみにしている。"
             rows={3}
             className="w-full px-4 py-3 bg-white border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#93C5FD] resize-none"
           />
@@ -415,39 +410,41 @@ function SentenceBlock({
             Cloze selection
           </h4>
 
-          {entryType === "word" && (
-            <div>
-              <p className="text-xs text-[#6B7280] mb-2">
-                Stage5（1 token）: 下のボタンでターゲットを1つ選択
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {sentence.tokens.map((t, i) => {
-                  const isS5 = sentence.s5Index === i;
-                  return (
-                    <button
-                      key={`s5-${t}-${i}`}
-                      type="button"
-                      onClick={() => onToggleS5(i)}
-                      className={`px-3 py-1 rounded-full border text-sm ${
-                        isS5
-                          ? "bg-blue-50 border-blue-300 text-blue-800"
-                          : "bg-white border-[#E5E7EB] text-[#111827]"
-                      }`}
-                      title="Tap to set Stage5 target"
-                    >
-                      {t}
-                    </button>
-                  );
-                })}
-              </div>
+          <div>
+            <p className="text-xs text-[#6B7280] mb-2">
+              Stage5（{entryType === "phrase" ? "2+ tokens" : "1 token"}）: ターゲットを選択
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {sentence.tokens.map((t, i) => {
+                const isS5 = sentence.s5Indices.includes(i);
+                const order = isS5 ? sentence.s5Indices.indexOf(i) + 1 : null;
+                return (
+                  <button
+                    key={`s5-${t}-${i}`}
+                    type="button"
+                    onClick={() => onToggleS5(i)}
+                    className={`px-3 py-1 rounded-full border text-sm ${
+                      isS5
+                        ? "bg-blue-50 border-blue-300 text-blue-800"
+                        : "bg-white border-[#E5E7EB] text-[#111827]"
+                    }`}
+                  >
+                    {t}
+                    {order !== null && (
+                      <span className="ml-2 text-xs text-blue-700">{order}</span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
-          )}
+            <p className="mt-2 text-[11px] text-[#9CA3AF]">
+              {entryType === "phrase"
+                ? "Stage5は2つ以上選択してください（語順は選択順で表示されます）"
+                : "Stage5は1つだけ選択できます"}
+            </p>
+          </div>
 
-          <p
-            className={`text-xs text-[#6B7280] mb-4 ${
-              entryType === "word" ? "mt-4" : ""
-            }`}
-          >
+          <p className="text-xs text-[#6B7280] mb-4 mt-4">
             Stage6: tokensを選択（2つ以上）
           </p>
 
@@ -458,7 +455,7 @@ function SentenceBlock({
 
               return (
                 <button
-                  key={`${t}-${i}`}
+                  key={`s6-${t}-${i}`}
                   type="button"
                   onClick={() => onToggleS6(i)}
                   className={`px-3 py-1 rounded-full border text-sm ${
@@ -466,7 +463,6 @@ function SentenceBlock({
                       ? "bg-green-50 border-green-300 text-green-800"
                       : "bg-white border-[#E5E7EB] text-[#111827]"
                   }`}
-                  title="Tap to toggle Stage6"
                 >
                   {t}
                   {order !== null && (
@@ -481,9 +477,9 @@ function SentenceBlock({
 
       {/* Preview */}
       {sentence.tokens.length > 0 &&
-        (sentence.s5Index !== null || sentence.s6Indices.length > 0) && (
+        (sentence.s5Indices.length > 0 || sentence.s6Indices.length > 0) && (
           <div className="space-y-4">
-            {entryType === "word" && sentence.s5Index !== null && (
+            {sentence.s5Indices.length >= s5Need && (
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-sm font-medium text-blue-800 mb-2">
                   Stage5 Preview
