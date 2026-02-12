@@ -10,6 +10,7 @@ import { Stage0EnJa } from "./stages/stage-0-en-ja"
 import { Stage1JaEn } from "./stages/stage-1-ja-en"
 import { Stage2SentenceAudio } from "./stages/stage-2-sentence-audio"
 import { Stage3JaEnType } from "./stages/stage-3-ja-en-type"
+import { Stage4ClozeChoice } from "./stages/stage-4-cloze-choice"
 import { Stage5ClozeSingle } from "./stages/stage-5-cloze-single"
 import { Stage6ClozeMultiple } from "./stages/stage-6-cloze-multiple"
 import { Stage7SelfJudge } from "./stages/stage-7-self-judge"
@@ -26,8 +27,8 @@ import { incrementTodayProgress } from "@/lib/daily-progress"
 
 export type StudyMode = "normal" | "weakness" | "quiz" | "challenge"
 
-const WORD_STAGES = [0, 1, 2, 3, 5, 6, 7] as const
-const PHRASE_STAGES = [0, 1, 2, 3, 6, 7] as const
+const WORD_STAGES = [0, 1, 2, 3, 4, 5, 6, 7] as const
+const PHRASE_STAGES = [0, 1, 2, 3, 4, 5, 6, 7] as const
 
 // ✅ phrase/word 両方を含むステージ型にする（cast地獄を減らす）
 type ActiveStage = (typeof WORD_STAGES)[number] | (typeof PHRASE_STAGES)[number]
@@ -84,9 +85,6 @@ export function StudyScreen({ mode = "normal", initialLimit }: Props) {
     const list = isPhrase ? PHRASE_STAGES : WORD_STAGES
 
     let stage = clampStage(currentWord.currentStage ?? 0, list)
-
-    // ✅ phrase は stage5 を持たない：誤データや古いデータがあっても 6 に寄せる
-    if (isPhrase && stage === 5) stage = 6
 
     return stage as ActiveStage
   }, [currentWord, mode])
@@ -239,11 +237,9 @@ export function StudyScreen({ mode = "normal", initialLimit }: Props) {
         return <Stage2SentenceAudio key={`${currentWord.id}-${currentStage}`} {...commonProps} />
       case 3:
         return <Stage3JaEnType key={`${currentWord.id}-${currentStage}`} {...commonProps} />
-      case 5:
-        // ✅ 念のため：phrase が迷い込んでも stage6 に逃がす
-        if (currentWord.entryType === "phrase") {
-          return <Stage6ClozeMultiple key={`${currentWord.id}-6`} {...commonProps} />
-        }
+      case 4:
+        return <Stage4ClozeChoice key={`${currentWord.id}-4`} {...commonProps} />
+       case 5:
         return <Stage5ClozeSingle key={`${currentWord.id}-${currentStage}`} {...commonProps} />
       case 6:
         return <Stage6ClozeMultiple key={`${currentWord.id}-${currentStage}`} {...commonProps} />
