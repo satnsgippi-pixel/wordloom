@@ -1,15 +1,29 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { loadWords } from "@/lib/storage";
+import { subscribeWords } from "@/lib/words-store";
+import type { WordData } from "@/lib/types";
 import { WordDetailCard } from "@/components/words/word-detail-card";
 
 export default function WordDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const [word, setWord] = useState<WordData | null>(null);
 
-  const word = useMemo(() => loadWords().find((w) => w.id === id), [id]);
+  useEffect(() => {
+    setWord(loadWords().find((w) => w.id === id) ?? null);
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    const refresh = () => {
+      setWord(loadWords().find((w) => w.id === id) ?? null);
+    };
+    const unsub = subscribeWords(refresh);
+    return unsub;
+  }, [id]);
 
   if (!word) {
     return (

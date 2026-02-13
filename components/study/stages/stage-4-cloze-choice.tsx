@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { getWords } from "@/lib/words-store"
 import type { WordData, SentenceData } from "@/lib/types"
 import { ClozeMissingCard } from "./cloze-missing-card"
@@ -47,6 +47,12 @@ export function Stage4ClozeChoice({ wordData, onAnswer, disabled }: Props) {
   }, [wordData.id, wordData.entryType])
 
   const targetIndexes = sentence?.s5?.targetTokenIndexes ?? []
+
+  const [showJa, setShowJa] = useState(false)
+
+  useEffect(() => {
+    setShowJa(false)
+  }, [wordData.id, sentence?.id])
 
   // 未設定
   if (!sentence || targetIndexes.length < minCount) {
@@ -129,7 +135,18 @@ export function Stage4ClozeChoice({ wordData, onAnswer, disabled }: Props) {
             </span>
           ))}
         </div>
-        {sentence.ja && <p className="text-sm text-[#6B7280] leading-relaxed mt-2">{sentence.ja}</p>}
+
+        {showJa && sentence.ja && (
+          <p className="text-sm text-[#6B7280] leading-relaxed mt-2">{sentence.ja}</p>
+        )}
+
+        <button
+          type="button"
+          onClick={() => setShowJa((v) => !v)}
+          className="text-xs text-[#2563EB] underline mt-2"
+        >
+          {showJa ? "日本語訳を隠す" : "日本語訳を表示"}
+        </button>
       </div>
 
       <div className="grid grid-cols-2 gap-2">
