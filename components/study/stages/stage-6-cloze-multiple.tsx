@@ -11,11 +11,12 @@ interface Stage6Props {
   mode?: "normal" | "weakness" | "quiz" | "challenge"
 }
 
-function normalizeAnswer(text: string): string {
+function normalize(text: string): string {
   return (text ?? "")
-    .toLowerCase()
     .trim()
-    .replace(/[^\w\s’'-]/g, "") // 軽めに記号無視
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/[.,!?;:]+/g, "")
 }
 
 const MIN_STAGE6_BLANKS = 2
@@ -52,53 +53,37 @@ export function Stage6ClozeMultiple({ wordData, onAnswer, disabled }: Stage6Prop
   )
   const need = blankIdxs.length
 
-  const [answers, setAnswers] = useState<Record<number, string>>({})
+  const [answer, setAnswer] = useState("")
   const [showJa, setShowJa] = useState(false)
 
   useEffect(() => {
     setShowJa(false)
-    setAnswers({})
+    setAnswer("")
   }, [wordData.id])
 
-  const correctAnswers = useMemo(() => {
-    if (!currentSentence || need < MIN_STAGE6_BLANKS) return []
-    return blankIdxs.map((i) => currentSentence.tokens?.[i] ?? "")
+  const correctRaw = useMemo(() => {
+    if (!currentSentence || need < MIN_STAGE6_BLANKS) return ""
+    return blankIdxs
+      .map((i) => currentSentence.tokens?.[i])
+      .filter(Boolean)
+      .join(" ")
   }, [currentSentence, need, blankIdxs])
 
-  const clozeSentence = useMemo(() => {
-    if (!currentSentence || need < MIN_STAGE6_BLANKS) return null
-    const markers = blankMarkers(need)
-    const markerMap = new Map<number, string>()
-    blankIdxs.forEach((idx, order) => markerMap.set(idx, markers[order] ?? "____"))
-    const rendered = (currentSentence.tokens ?? []).map((t, i) =>
-      markerMap.has(i) ? markerMap.get(i)! : t
-    )
-    return rendered.join(" ")
-  }, [currentSentence, blankIdxs, need])
+  const correct = normalize(correctRaw)
 
-  const handleChange = (order: number, value: string) => {
-    setAnswers((prev) => ({ ...prev, [order]: value }))
-  }
-
-  const isSubmitDisabled =
-    disabled ||
-    need < MIN_STAGE6_BLANKS ||
-    correctAnswers.some((_, i) => !(answers[i + 1] ?? "").trim())
+  const isSubmitDisabled = disabled || need < MIN_STAGE6_BLANKS || answer.trim().length === 0
 
   const handleSubmit = () => {
     if (isSubmitDisabled) return
-    const user = Array.from({ length: need }, (_, i) => answers[i + 1] ?? "")
-    const ok =
-      user.length === correctAnswers.length &&
-      user.every((a, i) => normalizeAnswer(a) === normalizeAnswer(correctAnswers[i] ?? ""))
-    onAnswer(user.join(", "), ok)
+    const trimmed = answer.trim()
+    const isCorrect = normalize(trimmed) === correct
+    onAnswer(trimmed, isCorrect)
   }
 
   if (
     !currentSentence ||
     need < MIN_STAGE6_BLANKS ||
-    !clozeSentence ||
-    correctAnswers.some((x) => !x)
+    !correctRaw
   ) {
     return (
       <div>
@@ -140,8 +125,21 @@ export function Stage6ClozeMultiple({ wordData, onAnswer, disabled }: Stage6Prop
         Cloze (Multiple Blanks)
       </p>
 
-      <div className="mb-2">
-        <p className="text-lg text-[#111827] leading-relaxed">{clozeSentence}</p>
+      <div className="mt-4 p-4 bg-white rounded-lg border border-[#E5E7EB]">
+        <div className="text-base leading-relaxed flex flex-wrap gap-1">
+          {currentSentence.tokens.map((token, index) =>
+            blankIdxs.includes(index) ? (
+              <span
+                key={index}
+                className="inline-block min-w-[80px] border-b-2 border-[#2563EB] text-center"
+              >
+                _____
+              </span>
+            ) : (
+              <span key={index}>{token}</span>
+            )
+          )}
+        </div>
 
         {showJa && (
           <p className="text-sm text-[#6B7280] leading-relaxed mt-2">{currentSentence.ja}</p>
@@ -156,22 +154,15 @@ export function Stage6ClozeMultiple({ wordData, onAnswer, disabled }: Stage6Prop
         </button>
       </div>
 
-      <div className="mt-6 space-y-4">
-        {Array.from({ length: need }, (_, i) => i + 1).map((order) => (
-          <div key={order}>
-            <label className="text-sm font-medium text-[#6B7280] mb-1 block">({order})</label>
-            <input
-              type="text"
-              value={answers[order] ?? ""}
-              onChange={(e) => handleChange(order, e.target.value)}
-              placeholder="Type your answer"
-              disabled={disabled}
-              className={`w-full px-4 py-3 text-base text-[#111827] bg-white border border-[#E5E7EB] rounded-lg min-h-[48px] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#93C5FD] focus:border-transparent ${
-                disabled ? "opacity-60 cursor-not-allowed bg-[#F8FAFC]" : ""
-              }`}
-            />
-          </div>
-        ))}
+      <div className="mt-4">
+        <input
+          type="text"
+          value={answer}
+          onChange={(e) => setAnswer(e.target.value)}
+          disabled={disabled}
+          placeholder="Type the missing phrase"
+          className="w-full px-4 py-3 text-base border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#93C5FD]"
+        />
       </div>
 
       <button

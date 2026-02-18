@@ -88,7 +88,7 @@ export function markNormalCorrect(wordId: string) {
       : 1
 
   // 正解で微増
-  const nextStability = clamp(prevStability + 0.15, STABILITY_MIN, STABILITY_MAX)
+  const nextStability = clamp(prevStability + 0.5, STABILITY_MIN, STABILITY_MAX)
 
   // stage進行
   const nextStreak = (target.stageStreak ?? 0) + 1
