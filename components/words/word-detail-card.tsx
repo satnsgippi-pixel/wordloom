@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
+import { EditWordLink } from "./edit-word-link"
 import { Copy, ExternalLink } from "lucide-react"
 import { AudioButton } from "@/components/study/audio-button"
 import type { WordData } from "@/lib/types"
@@ -168,12 +169,7 @@ export function WordDetailCard({ word }: { word: WordData }) {
 
       {/* Actions */}
       <div className="mt-6 space-y-3">
-        <Link
-          href={`/words/${word.id}/edit`}
-          className="block w-full text-center py-3 text-base font-medium text-white bg-[#2563EB] rounded-lg hover:bg-[#1D4ED8] transition-colors min-h-[48px]"
-        >
-          Edit
-        </Link>
+        <EditWordLink wordId={word.id} />
 
         <Link
           href="/words"

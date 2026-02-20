@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { CheckCircle2, XCircle, Copy, ExternalLink } from "lucide-react"
+import { CheckCircle2, XCircle, Copy, ExternalLink, Pencil } from "lucide-react"
+import Link from "next/link"
 import { AudioButton } from "./audio-button"
 import type { WordData, SentenceData } from "@/lib/types"
 import { playCorrect, playWrong } from "@/lib/sfx"
@@ -99,6 +100,14 @@ export function ResultCard({
             />
           </div>
           <div className="flex items-center gap-1 shrink-0">
+            <Link
+              href={`/words/${wordData.id}/edit`}
+              className="p-2 rounded-lg border border-[#E5E7EB] bg-white hover:bg-[#F8FAFC] transition-colors"
+              title="Edit"
+              aria-label="Edit"
+            >
+              <Pencil className="w-4 h-4 text-[#6B7280]" />
+            </Link>
             <button
               type="button"
               onClick={onCopy}
