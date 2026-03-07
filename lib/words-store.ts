@@ -25,15 +25,15 @@ function clamp(n: number, min: number, max: number) {
 const SRS_TABLE: { min: number; days: number }[] = [
   { min: 1,  days: 0.5 },   // 12h
   { min: 2,  days: 1 },     // 1d
-  { min: 4,  days: 2 },
-  { min: 6,  days: 4 },
-  { min: 8,  days: 7 },
-  { min: 10, days: 14 },
-  { min: 12, days: 28 },
-  { min: 14, days: 60 },    // ★追加
-  { min: 16, days: 120 },
-  { min: 18, days: 240 },
-  { min: 20, days: 360 },
+  { min: 3,  days: 2 },
+  { min: 4,  days: 4 },
+  { min: 5,  days: 7 },
+  { min: 6, days: 14 },
+  { min: 7, days: 28 },
+  { min: 8, days: 60 },    // ★追加
+  { min: 9, days: 120 },
+  { min: 10, days: 240 },
+  { min: 11, days: 360 },
 ]
 
 const STABILITY_MIN = 1
