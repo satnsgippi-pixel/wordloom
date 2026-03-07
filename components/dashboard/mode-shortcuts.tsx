@@ -1,7 +1,6 @@
 "use client"
 
 import Link from "next/link"
-import { AiWritingCard } from "@/components/dashboard/ai-writing-card"
 
 interface ModeShortcutsProps {
   weakWords: number
@@ -58,9 +57,6 @@ export function ModeShortcuts({
           </button>
         )}
       </div>
-
-      {/* Bottom row: AI添削（日替わりランダム） */}
-      <AiWritingCard />
     </div>
   )
 }

@@ -3,14 +3,9 @@
 import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 import { EditWordLink } from "./edit-word-link"
-import { Copy, ExternalLink } from "lucide-react"
 import { AudioButton } from "@/components/study/audio-button"
 import type { WordData } from "@/lib/types"
-import { copyToClipboard } from "@/lib/clipboard"
 import { setQaMemo } from "@/lib/words-store"
-
-const WORD_QA_GPT_URL =
-  "https://chatgpt.com/g/g-6978a7ff1f948191a23d1fe42441feee-ying-yu-huresushen-jue-ri-q-a"
 
 const INITIAL_EXAMPLES = 2
 
@@ -28,16 +23,7 @@ export function WordDetailCard({ word }: { word: WordData }) {
     setMemo(word.qaMemo ?? "")
   }, [word.id, word.qaMemo])
 
-  const copyPayload = useMemo(
-    () => `Word: ${word.word}\nMeaning: ${word.meaning}\n`,
-    [word.word, word.meaning]
-  )
-
   const hasSavedMemo = Boolean((word.qaMemo ?? "").trim())
-
-  const onCopy = async () => {
-    await copyToClipboard(copyPayload)
-  }
 
   const onSaveMemo = () => {
     setQaMemo(word.id, memo)
@@ -64,27 +50,6 @@ export function WordDetailCard({ word }: { word: WordData }) {
               text={word.word}
               lang="en-US"
             />
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            <button
-              type="button"
-              onClick={onCopy}
-              className="p-2 rounded-lg border border-[#E5E7EB] bg-white hover:bg-[#F8FAFC] transition-colors"
-              title="Copy word + meaning"
-              aria-label="Copy"
-            >
-              <Copy className="w-4 h-4 text-[#6B7280]" />
-            </button>
-            <a
-              href={WORD_QA_GPT_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="p-2 rounded-lg border border-[#E5E7EB] bg-white hover:bg-[#F8FAFC] transition-colors"
-              title="Open GPT"
-              aria-label="Open GPT"
-            >
-              <ExternalLink className="w-4 h-4 text-[#6B7280]" />
-            </a>
           </div>
         </div>
 

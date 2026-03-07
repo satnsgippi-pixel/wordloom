@@ -1,17 +1,12 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { CheckCircle2, XCircle, Copy, ExternalLink, Pencil } from "lucide-react"
+import { CheckCircle2, XCircle, Pencil } from "lucide-react"
 import Link from "next/link"
 import { AudioButton } from "./audio-button"
 import type { WordData, SentenceData } from "@/lib/types"
 import { playCorrect, playWrong } from "@/lib/sfx"
-import { copyToClipboard } from "@/lib/clipboard"
 import { setQaMemo } from "@/lib/words-store"
-
-const WORD_QA_GPT_URL =
-  "https://chatgpt.com/g/g-6978a7ff1f948191a23d1fe42441feee-ying-yu-huresushen-jue-ri-q-a"
-
 interface ResultCardProps {
   isCorrect: boolean
   correctAnswer: string
@@ -30,8 +25,8 @@ export function ResultCard({
   const [showMemo, setShowMemo] = useState(false)
   const [memo, setMemo] = useState("")
   const [saved, setSaved] = useState(false)
-  const [copied, setCopied] = useState(false)
   const [savedThisSession, setSavedThisSession] = useState(false)
+  const [isGeneratingMemo, setIsGeneratingMemo] = useState(false)
 
   useEffect(() => {
     if (isCorrect === true) playCorrect()
@@ -49,26 +44,36 @@ export function ResultCard({
     [wordData]
   )
 
-  const copyPayload = useMemo(
-    () => `Word: ${wordData.word}\nMeaning: ${wordData.meaning}\n`,
-    [wordData.word, wordData.meaning]
-  )
-
   const hasSavedMemo = Boolean((wordData.qaMemo ?? "").trim()) || savedThisSession
-
-  const onCopy = async () => {
-    const ok = await copyToClipboard(copyPayload)
-    if (ok) {
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 900)
-    }
-  }
 
   const onSaveMemo = () => {
     setQaMemo(wordData.id, memo)
     setSavedThisSession(true)
     setSaved(true)
     window.setTimeout(() => setSaved(false), 1200)
+  }
+
+  const handleAIGenerate = async () => {
+    if (!wordData.word.trim()) return
+
+    setIsGeneratingMemo(true)
+    try {
+      const res = await fetch("/api/gemini-detail", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ word: wordData.word, meaning: wordData.meaning }),
+      })
+      if (!res.ok) throw new Error("Failed to fetch detail")
+      const data = await res.json()
+      if (data.detail) {
+        setMemo((prev) => (prev.trim() ? prev + "\n\n" + data.detail : data.detail))
+      }
+    } catch (err) {
+      console.error(err)
+      alert("Failed to generate deep dive notes.")
+    } finally {
+      setIsGeneratingMemo(false)
+    }
   }
 
   return (
@@ -108,25 +113,6 @@ export function ResultCard({
             >
               <Pencil className="w-4 h-4 text-[#6B7280]" />
             </Link>
-            <button
-              type="button"
-              onClick={onCopy}
-              className="p-2 rounded-lg border border-[#E5E7EB] bg-white hover:bg-[#F8FAFC] transition-colors"
-              title={copied ? "Copied!" : "Copy word + meaning"}
-              aria-label={copied ? "Copied!" : "Copy"}
-            >
-              <Copy className="w-4 h-4 text-[#6B7280]" />
-            </button>
-            <a
-              href={WORD_QA_GPT_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="p-2 rounded-lg border border-[#E5E7EB] bg-white hover:bg-[#F8FAFC] transition-colors"
-              title="Open GPT"
-              aria-label="Open GPT"
-            >
-              <ExternalLink className="w-4 h-4 text-[#6B7280]" />
-            </a>
           </div>
         </div>
 
@@ -180,6 +166,20 @@ export function ResultCard({
           </button>
           {showMemo && (
             <div className="p-3 pt-0 bg-white border-t border-[#E5E7EB]">
+              <div className="flex justify-end mb-2 mt-2">
+                <button
+                  type="button"
+                  onClick={handleAIGenerate}
+                  disabled={isGeneratingMemo}
+                  className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
+                    isGeneratingMemo
+                      ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                      : "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+                  }`}
+                >
+                  {isGeneratingMemo ? "Generating..." : "💡 AIで深掘り生成"}
+                </button>
+              </div>
               <textarea
                 value={memo}
                 onChange={(e) => setMemo(e.target.value)}

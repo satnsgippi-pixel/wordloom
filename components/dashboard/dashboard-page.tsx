@@ -18,7 +18,6 @@ import {
 } from "@/lib/words-store"
 import { getTodayProgress } from "@/lib/daily-progress"
 import { DataTools } from "@/components/settings/data-tools"
-import { isTodayAiWritingDone } from "@/lib/daily-writing"
 
 export function DashboardPage() {
   const [weakWords, setWeakWords] = useState(0)
@@ -31,9 +30,7 @@ export function DashboardPage() {
   const [learnedL6Plus, setLearnedL6Plus] = useState(0)
   const [inProgress, setInProgress] = useState(0)
   const [todayProgress, setTodayProgress] = useState(0)
-
   const dailyGoal = 20
-  const [aiWritingDone, setAiWritingDone] = useState(false)
 
   useEffect(() => {
     const refresh = () => {
@@ -48,10 +45,7 @@ export function DashboardPage() {
       setInProgress(getInProgressCount())
       setTodayProgress(getTodayProgress())
 
-      // ✅ Challenge is enabled only when ready words exist
       setChallengeReady(getChallengeReadyCount(12))
-
-      setAiWritingDone(isTodayAiWritingDone())
     }
 
     refresh()

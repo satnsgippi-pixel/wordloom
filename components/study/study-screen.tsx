@@ -14,6 +14,7 @@ import { Stage4ClozeChoice } from "./stages/stage-4-cloze-choice"
 import { Stage5ClozeSingle } from "./stages/stage-5-cloze-single"
 import { Stage6ClozeMultiple } from "./stages/stage-6-cloze-multiple"
 import { Stage7SelfJudge } from "./stages/stage-7-self-judge"
+import { Stage8SelfWrite } from "./stages/stage-8-self-write"
 
 import {
   getWords,
@@ -27,8 +28,8 @@ import { incrementTodayProgress } from "@/lib/daily-progress"
 
 export type StudyMode = "normal" | "weakness" | "quiz" | "challenge"
 
-const WORD_STAGES = [0, 1, 2, 3, 4, 5, 6, 7] as const
-const PHRASE_STAGES = [0, 1, 2, 3, 4, 5, 6, 7] as const
+const WORD_STAGES = [0, 1, 2, 3, 4, 5, 6, 7, 8] as const
+const PHRASE_STAGES = [0, 1, 2, 3, 4, 5, 6, 7, 8] as const
 
 // ✅ phrase/word 両方を含むステージ型にする（cast地獄を減らす）
 type ActiveStage = (typeof WORD_STAGES)[number] | (typeof PHRASE_STAGES)[number]
@@ -245,6 +246,8 @@ export function StudyScreen({ mode = "normal", initialLimit }: Props) {
         return <Stage6ClozeMultiple key={`${currentWord.id}-${currentStage}`} {...commonProps} />
       case 7:
         return <Stage7SelfJudge key={`${currentWord.id}-${currentStage}`} {...commonProps} />
+      case 8:
+        return <Stage8SelfWrite key={`${currentWord.id}-${currentStage}`} {...commonProps} />
       default:
         return <Stage0EnJa key={`${currentWord.id}-${currentStage}`} {...commonProps} />
     }

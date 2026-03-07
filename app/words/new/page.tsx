@@ -30,6 +30,8 @@ export default function NewWordPage() {
   const [entryType, setEntryType] = useState<EntryType>("word");
   const [word, setWord] = useState("");
   const [meaning, setMeaning] = useState("");
+  const [qaMemo, setQaMemo] = useState("");
+  const [isGeneratingMemo, setIsGeneratingMemo] = useState(false);
 
   const [sentencesDraft, setSentencesDraft] = useState<SentenceDraft[]>([
     {
@@ -175,6 +177,7 @@ export default function NewWordPage() {
       entryType,
       word: word.trim(),
       meaning: meaning.trim(),
+      qaMemo: qaMemo.trim() || undefined,
       sentences: sentencesDraft.map((s) => ({
         id: s.id,
         en: s.en.trim(),
@@ -265,6 +268,60 @@ export default function NewWordPage() {
               className="w-full px-4 py-3 bg-white border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#93C5FD]"
             />
           </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-[#6B7280]">
+                Deep Dive Notes (深堀りメモ)
+              </label>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!word.trim()) {
+                    alert("Please enter a word or phrase first.");
+                    return;
+                  }
+                  setIsGeneratingMemo(true);
+                  try {
+                    const res = await fetch("/api/gemini-detail", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ word, meaning }),
+                    });
+                    if (!res.ok) throw new Error("Failed to fetch detail");
+                    const data = await res.json();
+                    if (data.detail) {
+                      setQaMemo((prev) => 
+                        prev.trim() ? prev + "\n\n" + data.detail : data.detail
+                      );
+                    }
+                  } catch (err) {
+                    console.error(err);
+                    alert("Failed to generate deep dive notes.");
+                  } finally {
+                    setIsGeneratingMemo(false);
+                  }
+                }}
+                disabled={isGeneratingMemo || !word.trim()}
+                className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
+                  isGeneratingMemo
+                    ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                    : word.trim()
+                    ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+                    : "bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed"
+                }`}
+              >
+                {isGeneratingMemo ? "Generating..." : "💡 AIで深掘り生成"}
+              </button>
+            </div>
+            <textarea
+              value={qaMemo}
+              onChange={(e) => setQaMemo(e.target.value)}
+              rows={4}
+              placeholder="語感やニュアンス、使い分け等のメモ"
+              className="w-full px-4 py-3 bg-white border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#93C5FD] resize-y min-h-[100px]"
+            />
+          </div>
         </div>
 
         {/* Sentences */}
@@ -272,6 +329,8 @@ export default function NewWordPage() {
           {sentencesDraft.map((sentence, index) => (
             <SentenceBlock
               key={sentence.id}
+              wordContent={word}
+              meaningContent={meaning}
               sentence={sentence}
               entryType={entryType}
               index={index}
@@ -285,8 +344,8 @@ export default function NewWordPage() {
           ))}
         </div>
 
-        {/* Add sentence button */}
-        <div className="mb-6">
+        {/* Add sentence button & AI generation */}
+        <div className="mb-6 flex flex-wrap gap-2">
           <button
             type="button"
             onClick={addSentence}
@@ -316,6 +375,8 @@ export default function NewWordPage() {
 }
 
 type SentenceBlockProps = {
+  wordContent: string;
+  meaningContent: string;
   sentence: SentenceDraft;
   entryType: EntryType;
   index: number;
@@ -328,6 +389,8 @@ type SentenceBlockProps = {
 };
 
 function SentenceBlock({
+  wordContent,
+  meaningContent,
   sentence,
   entryType,
   index,
@@ -338,6 +401,37 @@ function SentenceBlock({
   onToggleS6,
   onRemove,
 }: SentenceBlockProps) {
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+
+  const handleAIGenerate = async () => {
+    if (!wordContent.trim()) {
+      alert("Please enter a word or phrase first.");
+      return;
+    }
+
+    setIsGeneratingAI(true);
+    try {
+      const res = await fetch("/api/gemini", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ word: wordContent, meaning: meaningContent }),
+      });
+
+      if (!res.ok) {
+        throw new Error("API response not ok");
+      }
+
+      const data = await res.json();
+      if (data.example) onEnChange(data.example);
+      if (data.translation) onJaChange(data.translation);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to generate sentence.");
+    } finally {
+      setIsGeneratingAI(false);
+    }
+  };
+  
   const s5Need = entryType === "phrase" ? 2 : 1;
 
   const stage5Preview = useMemo(() => {
@@ -353,9 +447,25 @@ function SentenceBlock({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-base font-semibold text-[#111827]">
-          Sentence {index + 1}
-        </h3>
+        <div className="flex items-center gap-3">
+          <h3 className="text-base font-semibold text-[#111827]">
+            Sentence {index + 1}
+          </h3>
+          <button
+            type="button"
+            onClick={handleAIGenerate}
+            disabled={isGeneratingAI || !wordContent.trim()}
+            className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
+              isGeneratingAI
+                ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                : wordContent.trim()
+                ? "bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100"
+                : "bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed"
+            }`}
+          >
+            {isGeneratingAI ? "Generating..." : "✨ AIで例文生成"}
+          </button>
+        </div>
         {canRemove && (
           <button
             type="button"
