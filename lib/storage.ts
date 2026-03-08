@@ -1,43 +1,20 @@
-// lib/storage.ts
+import { db } from "./db";
 import type { WordData } from "./types";
 
-export const STORAGE_KEY = "wordloom.words.v1";
+// SSR対策：ブラウザの有無は呼び出し元で不要になる（Dexie側でフックできるが安全のためチェック可）
 
-// SSR対策：ブラウザでのみlocalStorageを使う
-function isBrowser(): boolean {
-  return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+export async function upsertWord(word: WordData): Promise<void> {
+  await db.words.put(word);
 }
 
-export function loadWords(): WordData[] {
-  if (!isBrowser()) return [];
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const data = JSON.parse(raw) as unknown;
-    if (!Array.isArray(data)) return [];
-    return data as WordData[];
-  } catch {
-    return [];
-  }
+export async function deleteWord(id: string): Promise<void> {
+  await db.words.delete(id);
 }
 
-export function saveWords(words: WordData[]): void {
-  if (!isBrowser()) return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(words));
+export async function getWordById(id: string): Promise<WordData | undefined> {
+  return await db.words.get(id);
 }
 
-export function upsertWord(word: WordData): void {
-  const words = loadWords();
-  const idx = words.findIndex((w) => w.id === word.id);
-  if (idx >= 0) {
-    words[idx] = word;
-  } else {
-    words.unshift(word);
-  }
-  saveWords(words);
-}
-
-export function deleteWord(id: string): void {
-  const words = loadWords().filter((w) => w.id !== id);
-  saveWords(words);
+export async function getAllWords(): Promise<WordData[]> {
+  return await db.words.toArray();
 }

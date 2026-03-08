@@ -1,29 +1,22 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { loadWords } from "@/lib/storage";
-import { subscribeWords } from "@/lib/words-store";
-import type { WordData } from "@/lib/types";
+import { useLiveQuery } from "dexie-react-hooks";
+import { db } from "@/lib/db";
 import { WordDetailCard } from "@/components/words/word-detail-card";
 
 export default function WordDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const [word, setWord] = useState<WordData | null>(null);
+  const word = useLiveQuery(() => db.words.get(id).then(res => res || null), [id]);
 
-  useEffect(() => {
-    setWord(loadWords().find((w) => w.id === id) ?? null);
-  }, [id]);
-
-  useEffect(() => {
-    if (!id) return;
-    const refresh = () => {
-      setWord(loadWords().find((w) => w.id === id) ?? null);
-    };
-    const unsub = subscribeWords(refresh);
-    return unsub;
-  }, [id]);
+  if (word === undefined) {
+    return (
+      <main className="min-h-screen bg-[#F9FAFB] p-6 text-center text-sm font-medium animate-pulse text-zinc-500">
+        Loading...
+      </main>
+    );
+  }
 
   if (!word) {
     return (

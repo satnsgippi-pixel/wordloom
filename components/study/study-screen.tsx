@@ -17,7 +17,6 @@ import { Stage7SelfJudge } from "./stages/stage-7-self-judge"
 import { Stage8SelfWrite } from "./stages/stage-8-self-write"
 
 import {
-  getWords,
   markWeaknessCorrect,
   markWeaknessWrong,
   markNormalCorrect,
@@ -25,6 +24,8 @@ import {
 } from "@/lib/words-store"
 import type { WordData } from "@/lib/types"
 import { incrementTodayProgress } from "@/lib/daily-progress"
+import { useLiveQuery } from "dexie-react-hooks"
+import { db } from "@/lib/db"
 
 export type StudyMode = "normal" | "weakness" | "quiz" | "challenge"
 
@@ -69,6 +70,9 @@ export function StudyScreen({ mode = "normal", initialLimit }: Props) {
   const [answer, setAnswer] = useState<string | null>(null)
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null)
   const [showResult, setShowResult] = useState(false)
+  const [hasInitialized, setHasInitialized] = useState(false)
+
+  const words = useLiveQuery(() => db.words.toArray())
 
   const currentWord: WordData | null = useMemo(() => {
     if (queue.length === 0) return null
@@ -99,7 +103,8 @@ export function StudyScreen({ mode = "normal", initialLimit }: Props) {
 
   // ✅ キュー構築（mode依存）
   useEffect(() => {
-    const words = getWords()
+    if (words === undefined || hasInitialized) return;
+
     const now = Date.now()
 
     if (words.length === 0) {
@@ -144,9 +149,10 @@ export function StudyScreen({ mode = "normal", initialLimit }: Props) {
     setQueue(first)
     setQIndex(0)
     setProgress({ current: 1, total: first.length })
-  }, [mode, limit])
+    setHasInitialized(true)
+  }, [mode, limit, words, hasInitialized])
 
-  const handleAnswer = (_: string, correct: boolean) => {
+  const handleAnswer = async (_: string, correct: boolean) => {
     setIsCorrect(correct)
     setShowResult(true)
 
@@ -156,20 +162,20 @@ export function StudyScreen({ mode = "normal", initialLimit }: Props) {
     }
 
     // ✅ 今日の進捗 +1
-    incrementTodayProgress(1)
+    await incrementTodayProgress(1)
 
     if (!currentWord) return
 
     if (mode === "weakness") {
       correct
-        ? markWeaknessCorrect(currentWord.id)
-        : markWeaknessWrong(currentWord.id, currentStage as any)
+        ? await markWeaknessCorrect(currentWord.id)
+        : await markWeaknessWrong(currentWord.id, currentStage as any)
       return
     }
 
     correct
-      ? markNormalCorrect(currentWord.id)
-      : markNormalWrong(currentWord.id, currentStage as any)
+      ? await markNormalCorrect(currentWord.id)
+      : await markNormalWrong(currentWord.id, currentStage as any)
   }
 
   const handleNext = () => {
@@ -197,6 +203,14 @@ export function StudyScreen({ mode = "normal", initialLimit }: Props) {
   const isLastQuestion = progress.total > 0 && progress.current >= progress.total
 
   const renderStage = () => {
+    if (words === undefined) {
+      return (
+        <div className="py-10 text-center text-sm font-medium animate-pulse text-zinc-500">
+          Loading...
+        </div>
+      );
+    }
+
     if (!currentWord) {
       if (mode === "weakness") {
         return renderEmpty(
@@ -231,15 +245,39 @@ export function StudyScreen({ mode = "normal", initialLimit }: Props) {
 
     switch (currentStage) {
       case 0:
-        return <Stage0EnJa key={`${currentWord.id}-${currentStage}`} {...commonProps} />
+        return (
+          <Stage0EnJa
+            key={`${currentWord.id}-${currentStage}`}
+            {...commonProps}
+            words={words}
+          />
+        )
       case 1:
-        return <Stage1JaEn key={`${currentWord.id}-${currentStage}`} {...commonProps} />
+        return (
+          <Stage1JaEn
+            key={`${currentWord.id}-${currentStage}`}
+            {...commonProps}
+            words={words}
+          />
+        )
       case 2:
-        return <Stage2SentenceAudio key={`${currentWord.id}-${currentStage}`} {...commonProps} />
+        return (
+          <Stage2SentenceAudio
+            key={`${currentWord.id}-${currentStage}`}
+            {...commonProps}
+            words={words}
+          />
+        )
       case 3:
         return <Stage3JaEnType key={`${currentWord.id}-${currentStage}`} {...commonProps} />
       case 4:
-        return <Stage4ClozeChoice key={`${currentWord.id}-4`} {...commonProps} />
+        return (
+          <Stage4ClozeChoice
+            key={`${currentWord.id}-4`}
+            {...commonProps}
+            words={words}
+          />
+        )
        case 5:
         return <Stage5ClozeSingle key={`${currentWord.id}-${currentStage}`} {...commonProps} />
       case 6:
@@ -249,7 +287,7 @@ export function StudyScreen({ mode = "normal", initialLimit }: Props) {
       case 8:
         return <Stage8SelfWrite key={`${currentWord.id}-${currentStage}`} {...commonProps} />
       default:
-        return <Stage0EnJa key={`${currentWord.id}-${currentStage}`} {...commonProps} />
+        return <Stage0EnJa key={`${currentWord.id}-${currentStage}`} {...commonProps} words={words} />
     }
   }
 

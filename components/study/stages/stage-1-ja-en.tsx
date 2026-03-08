@@ -9,19 +9,20 @@ interface Stage1Props {
   wordData: WordData
   onAnswer: (answer: string, isCorrect: boolean) => void
   disabled?: boolean
+  words: WordData[]
 }
 
 type Choice = { label: string; isCorrect: boolean }
 
-export function Stage1JaEn({ wordData, onAnswer, disabled }: Stage1Props) {
+export function Stage1JaEn({ wordData, onAnswer, disabled, words }: Stage1Props) {
   const [choices, setChoices] = useState<Choice[]>([])
 
   useEffect(() => {
-    const pool = getWords()
+    const pool = words
 
     const generated = generateWordChoices(wordData, pool)
     setChoices(generated)
-  }, [wordData.id])
+  }, [wordData.id, words])
 
   // 4択が揃ってない場合の表示（登録語が少ない初期に起こる）
   if (choices.length < 2) {

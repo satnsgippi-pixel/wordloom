@@ -7,6 +7,7 @@
 export type TTSLang = "en-US" | "ja-JP";
 
 let cachedVoices: SpeechSynthesisVoice[] | null = null;
+let activeUtterance: SpeechSynthesisUtterance | null = null;
 
 function getVoicesSafe(): SpeechSynthesisVoice[] {
   if (typeof window === "undefined") return [];
@@ -108,24 +109,53 @@ function pickVoice(voices: SpeechSynthesisVoice[], lang: TTSLang): SpeechSynthes
 
 export async function speak(text: string, lang: TTSLang = "en-US") {
   if (typeof window === "undefined") return;
-  if (!("speechSynthesis" in window)) return;
 
   const t = (text ?? "").trim();
   if (!t) return;
 
+  // 1. Try Google Cloud TTS via our backend API
+  try {
+    const res = await fetch("/api/tts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: t, lang }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.audioContent) {
+        const audio = new Audio("data:audio/mp3;base64," + data.audioContent);
+        await audio.play();
+        return; // Success, no need for fallback
+      }
+    } else {
+      console.warn("Google TTS API returned non-OK status:", res.status);
+    }
+  } catch (err) {
+    console.warn("Failed to fetch Google TTS, falling back to Web Speech API", err);
+  }
+
+  // 2. Fallback to Web Speech API (speechSynthesis)
+  if (!("speechSynthesis" in window)) return;
+
   const synth = window.speechSynthesis;
 
-  // Stop any current speech to avoid overlapping / wrong voice reuse
+  const voices = cachedVoices && cachedVoices.length > 0 ? cachedVoices : await ensureVoicesReady();
+  const voice = pickVoice(voices, lang);
+
+  // Stop any current speech to avoid overlapping / wrong voice reuse immediately before speaking
   try {
     synth.cancel();
   } catch {
     // ignore
   }
 
-  const voices = cachedVoices && cachedVoices.length > 0 ? cachedVoices : await ensureVoicesReady();
-  const voice = pickVoice(voices, lang);
-
+  // Ensure returning a brand new utterance instance every time
   const utter = new SpeechSynthesisUtterance(t);
+  
+  // Hold a reference globally to prevent Safari from garbage collecting it mid-speech
+  activeUtterance = utter;
+
   utter.lang = lang;
 
   if (voice) utter.voice = voice;
@@ -144,6 +174,16 @@ export async function speak(text: string, lang: TTSLang = "en-US") {
   }
 
   utter.volume = 1.0;
+
+  // Cleanup to prevent memory leaks and stabilize the queue
+  utter.onend = () => {
+    activeUtterance = null;
+  };
+  
+  utter.onerror = (e) => {
+    console.warn("TTS Error:", e);
+    activeUtterance = null;
+  };
 
   synth.speak(utter);
 }

@@ -10,6 +10,7 @@ type Props = {
   onAnswer: (answer: string, isCorrect: boolean) => void
   disabled?: boolean
   mode?: "normal" | "weakness" | "quiz" | "challenge"
+  words: WordData[]
 }
 
 function shuffle<T>(arr: T[]): T[] {
@@ -33,7 +34,7 @@ function buildClozeLabel(sentence: SentenceData, idxs: number[]) {
   return idxs.map((i) => sentence.tokens[i]).filter(Boolean).join(" ")
 }
 
-export function Stage4ClozeChoice({ wordData, onAnswer, disabled }: Props) {
+export function Stage4ClozeChoice({ wordData, onAnswer, disabled, mode, words }: Props) {
   const minCount = requiredS5MinCount(wordData.entryType)
 
   // ✅ s5が設定された例文だけから選ぶ
@@ -77,7 +78,7 @@ export function Stage4ClozeChoice({ wordData, onAnswer, disabled }: Props) {
     const display = tokens.map((t, i) => (blanks.has(i) ? "_____" : t))
 
     // ダミー生成：同じ entryType の単語/フレーズから、s5が有効なものを使う
-    const pool = getWords().filter((w) => w.entryType === wordData.entryType && w.id !== wordData.id)
+    const pool = words.filter((w) => w.entryType === wordData.entryType && w.id !== wordData.id)
 
     const distractors: string[] = []
     for (const w of shuffle(pool)) {

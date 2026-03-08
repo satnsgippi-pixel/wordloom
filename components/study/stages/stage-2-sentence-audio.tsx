@@ -10,6 +10,8 @@ interface Stage2Props {
   wordData: WordData
   onAnswer: (answer: string, isCorrect: boolean) => void
   disabled?: boolean
+  mode?: "normal" | "weakness" | "quiz" | "challenge"
+  words: WordData[]
 }
 
 /** util: shuffle */
@@ -23,20 +25,29 @@ function shuffle<T>(arr: T[]): T[] {
  * - Do NOT show the word text (audio only)
  * - Correct = wordData.meaning
  */
-export function Stage2SentenceAudio({ wordData, onAnswer, disabled }: Stage2Props) {
+export function Stage2SentenceAudio({
+  wordData,
+  onAnswer,
+  disabled,
+  mode = "normal",
+  words,
+}: Stage2Props) {
   const [choices, setChoices] = useState<{ label: string; isCorrect: boolean }[]>([])
 
   const correctMeaning = useMemo(() => (wordData.meaning ?? "").trim(), [wordData.meaning])
 
   useEffect(() => {
     // 全単語から meaning プールを作る
-    const pool = getWords()
+    const pool = words
+    const filtered = pool.filter(
+      (w) => w.entryType === wordData.entryType && w.id !== wordData.id
+    )
 
     // meaningを集める（空・重複・正解と同一は除外）
     const uniq = new Set<string>()
     const wrongCandidates: string[] = []
 
-    for (const w of pool) {
+    for (const w of filtered) {
       const m = (w.meaning ?? "").trim()
       if (!m) continue
       if (m === correctMeaning) continue

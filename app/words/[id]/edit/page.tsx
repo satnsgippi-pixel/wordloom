@@ -3,7 +3,7 @@
 import { useMemo, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import type { EntryType, WordData } from "@/lib/types";
-import { loadWords, upsertWord, deleteWord } from "@/lib/storage";
+import { getWordById, upsertWord, deleteWord } from "@/lib/storage";
 import { tokenize } from "@/lib/tokenize";
 import { buildClozePreview } from "@/lib/cloze";
 
@@ -52,11 +52,12 @@ export default function EditWordPage() {
 
   // ---- load existing word ----
   useEffect(() => {
-    const found = loadWords().find((w) => w.id === id);
-    if (!found) {
-      setLoaded(true);
-      return;
-    }
+    (async () => {
+      const found = await getWordById(id);
+      if (!found) {
+        setLoaded(true);
+        return;
+      }
 
     setOriginal(found);
     setEntryType(found.entryType ?? "word");
@@ -80,10 +81,8 @@ export default function EditWordPage() {
       setSentencesDraft(ds);
     } else {
       // 旧互換（もし残っていれば）
-      // @ts-expect-error legacy
-      const legacyEn = (found.sentence as string) ?? "";
-      // @ts-expect-error legacy
-      const legacyJa = (found.translation as string) ?? "";
+      const legacyEn = (found as any).sentence ?? "";
+      const legacyJa = (found as any).translation ?? "";
       setSentencesDraft([
         {
           id: uid(),
@@ -99,6 +98,7 @@ export default function EditWordPage() {
     }
 
     setLoaded(true);
+    })();
   }, [id]);
 
   const notFound = useMemo(() => loaded && !original, [loaded, original]);
@@ -230,7 +230,7 @@ export default function EditWordPage() {
   const canSave = baseOk && allSentencesOk && allClozeOk;
 
   // ---- save/delete ----
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!original || !canSave) return;
 
     const now = Date.now();
@@ -253,14 +253,14 @@ export default function EditWordPage() {
       updatedAt: now,
     };
 
-    upsertWord(updated);
+    await upsertWord(updated);
     router.push(`/words/${original.id}`);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!original) return;
     if (!confirm("Delete this word?")) return;
-    deleteWord(original.id);
+    await deleteWord(original.id);
     router.push("/words");
   };
 

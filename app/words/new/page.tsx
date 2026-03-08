@@ -166,7 +166,7 @@ export default function NewWordPage() {
 
   const canSave = baseOk && allSentencesOk && allClozeOk;
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!canSave) return;
 
     const now = Date.now();
@@ -194,7 +194,7 @@ export default function NewWordPage() {
       updatedAt: now,
     };
 
-    upsertWord(newWord);
+    await upsertWord(newWord);
     router.push(`/words/${id}`);
   };
 

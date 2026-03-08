@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@google/genai": "^1.44.0",
+    "dexie": "^4.3.0",
+    "dexie-react-hooks": "^4.2.0",
     "lucide-react": "^0.563.0",
     "next": "16.1.4",
     "react": "19.2.3",

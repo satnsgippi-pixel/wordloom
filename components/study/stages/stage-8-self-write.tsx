@@ -129,7 +129,7 @@ export function Stage8SelfWrite({ wordData, onAnswer, disabled, mode }: Props) {
   };
 
   // ③ 例文として登録
-  const handleSaveAsExample = () => {
+  const handleSaveAsExample = async () => {
     if (!correction) return;
     
     const newSentence: SentenceData = {
@@ -147,7 +147,7 @@ export function Stage8SelfWrite({ wordData, onAnswer, disabled, mode }: Props) {
       updatedAt: Date.now(),
     };
 
-    upsertWord(updatedWord);
+    await upsertWord(updatedWord);
     setIsSaved(true);
   };
 

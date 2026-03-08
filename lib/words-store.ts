@@ -1,6 +1,6 @@
 // lib/words-store.ts
 import type { WordData } from "@/lib/types";
-import { loadWords, upsertWord } from "@/lib/storage";
+import { getWordById, getAllWords, upsertWord } from "@/lib/storage";
 
 /**
  * 旧 Study UI 互換レイヤー（暫定）
@@ -75,9 +75,8 @@ function computeNextDueAt(
  * - stageは下げない
  * - stability/dueAt更新は次ステップで入れる（現時点では触らない）
  */
-export function markNormalCorrect(wordId: string) {
-  const words = loadWords()
-  const target = words.find((w) => w.id === wordId)
+export async function markNormalCorrect(wordId: string) {
+  const target = await getWordById(wordId);
   if (!target) return
 
   const now = Date.now()
@@ -111,7 +110,7 @@ export function markNormalCorrect(wordId: string) {
     updatedAt: now,
   }
 
-  upsertWord(updated)
+  await upsertWord(updated)
   notifyWordsChanged()
 }
 
@@ -122,9 +121,8 @@ export function markNormalCorrect(wordId: string) {
  * - stageは下げない
  * - stability/dueAt更新は次ステップで入れる（現時点では触らない）
  */
-export function markNormalWrong(wordId: string, stage: number) {
-  const words = loadWords()
-  const target = words.find((w) => w.id === wordId)
+export async function markNormalWrong(wordId: string, stage: number) {
+  const target = await getWordById(wordId);
   if (!target) return
 
   const now = Date.now()
@@ -150,13 +148,13 @@ export function markNormalWrong(wordId: string, stage: number) {
     updatedAt: now,
   }
 
-  upsertWord(updated)
+  await upsertWord(updated)
   notifyWordsChanged()
 }
 
 // StudyScreen が要求する：単語一覧を取得
-export function getWords(): WordData[] {
-  return loadWords();
+export async function getWords(): Promise<WordData[]> {
+  return await getAllWords();
 }
 
 /**
@@ -164,9 +162,8 @@ export function getWords(): WordData[] {
  * - stage / stability / dueAt は変更しない
  * - weakness は { stage, streak, updatedAt } を維持
  */
-export function markWeaknessWrong(wordId: string, stage: number) {
-  const words = loadWords();
-  const target = words.find((w) => w.id === wordId);
+export async function markWeaknessWrong(wordId: string, stage: number) {
+  const target = await getWordById(wordId);
   if (!target) return;
 
   const updated: WordData = {
@@ -178,7 +175,7 @@ export function markWeaknessWrong(wordId: string, stage: number) {
     },
   };
 
-  upsertWord(updated);
+  await upsertWord(updated);
   notifyWordsChanged();
 }
 
@@ -187,9 +184,8 @@ export function markWeaknessWrong(wordId: string, stage: number) {
  * - streak++ し、2連続で weakness を解除
  * - stage / stability / dueAt は変更しない
  */
-export function markWeaknessCorrect(wordId: string) {
-  const words = loadWords();
-  const target = words.find((w) => w.id === wordId);
+export async function markWeaknessCorrect(wordId: string) {
+  const target = await getWordById(wordId);
   if (!target) return;
 
   const current = target.weakness;
@@ -209,7 +205,7 @@ export function markWeaknessCorrect(wordId: string) {
         },
   };
 
-  upsertWord(updated);
+  await upsertWord(updated);
   notifyWordsChanged();
 }
 
@@ -219,13 +215,13 @@ export function markWeaknessCorrect(wordId: string) {
  *
  * ✅ 推奨: 今後は markNormalWrong(wordId, stage) / markWeaknessWrong(wordId, stage) を呼ぶ
  */
-export function markWrong(wordText: string, stage: number) {
-  const words = loadWords();
+export async function markWrong(wordText: string, stage: number) {
+  const words = await getAllWords();
   const target = words.find((w) => w.word === wordText);
   if (!target) return;
 
   // 旧挙動は「弱点復習用の間違い記録」だったので weakness に寄せる
-  markWeaknessWrong(target.id, stage);
+  await markWeaknessWrong(target.id, stage);
 }
 
 /**
@@ -280,19 +276,18 @@ function shuffle<T>(array: T[]): T[] {
 
 // ===== Dashboard support =====
 
-export function getTotalWordsCount(): number {
-  return loadWords().length;
+export function getTotalWordsCount(words: WordData[]): number {
+  return words.length;
 }
 
-export function getWeakWordsCount(): number {
-  return loadWords().filter((w) => !!w.weakness).length;
+export function getWeakWordsCount(words: WordData[]): number {
+  return words.filter((w) => !!w.weakness).length;
 }
 
 const WORDS_CHANGED_EVENT = "wordloom:words-changed";
 
 // ===== Challenge support =====
-export function getChallengeReadyCount(minStability: number = 12): number {
-  const words = loadWords()
+export function getChallengeReadyCount(words: WordData[], minStability: number = 12): number {
   return words.filter((w) => (w.stability ?? 0) >= minStability && !w.weakness).length
 }
 
@@ -317,7 +312,7 @@ export function subscribeWords(onChange: () => void) {
 
 export function resetWordsStorage() {
   if (typeof window === "undefined") return;
-  localStorage.removeItem("wordloom.words.v1");
+  window.localStorage.removeItem("wordloom.words.v1");
   notifyWordsChanged();
 }
 // ===== Dashboard (real stats) =====
@@ -337,21 +332,18 @@ function getDueAtSafe(w: any): number {
  *
  * ※あとで定義変更したくなったらここだけ触ればOK
  */
-export function getDueNowCount(now = Date.now()): number {
-  const words = loadWords()
+export function getDueNowCount(words: WordData[], now = Date.now()): number {
   return words.filter((w) => {
     const dueAt = getDueAtSafe(w)
     return dueAt <= now && dueAt >= now - DAY_MS
   }).length
 }
 
-export function getOverdueCount(now = Date.now()): number {
-  const words = loadWords()
+export function getOverdueCount(words: WordData[], now = Date.now()): number {
   return words.filter((w) => getDueAtSafe(w) < now - DAY_MS).length
 }
 
-export function getNextNDaysCount(days: number, now = Date.now()): number {
-  const words = loadWords()
+export function getNextNDaysCount(words: WordData[], days: number, now = Date.now()): number {
   const upper = now + days * DAY_MS
   return words.filter((w) => {
     const dueAt = getDueAtSafe(w)
@@ -363,21 +355,19 @@ export function getNextNDaysCount(days: number, now = Date.now()): number {
  * learnedL6Plus の定義
  * - currentStage >= 6 を「だいぶ固い」とみなす（L6+）
  */
-export function getLearnedL6PlusCount(): number {
-  const words = loadWords()
+export function getLearnedL6PlusCount(words: WordData[]): number {
   return words.filter((w) => (w.currentStage ?? 0) >= 6).length
 }
 
-export function getInProgressCount(): number {
-  const total = getTotalWordsCount()
-  const learned = getLearnedL6PlusCount()
+export function getInProgressCount(words: WordData[]): number {
+  const total = getTotalWordsCount(words)
+  const learned = getLearnedL6PlusCount(words)
   return Math.max(0, total - learned)
 }
 
-export function setQaMemo(wordId: string, qaMemo: string) {
-  const words = loadWords()
-  const target = words.find((w) => w.id === wordId)
-  if (!target) return
+export async function setQaMemo(wordId: string, qaMemo: string) {
+  const target = await getWordById(wordId);
+  if (!target) return;
 
   const updated: WordData = {
     ...target,
@@ -385,7 +375,7 @@ export function setQaMemo(wordId: string, qaMemo: string) {
     updatedAt: Date.now(),
   }
 
-  upsertWord(updated)
+  await upsertWord(updated)
 
   // Dashboard等に反映させる（既にあるならそれを使う）
   if (typeof window !== "undefined") {

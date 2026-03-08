@@ -14,48 +14,33 @@ import {
   getLearnedL6PlusCount,
   getInProgressCount,
   getChallengeReadyCount,
-  subscribeWords,
 } from "@/lib/words-store"
-import { getTodayProgress } from "@/lib/daily-progress"
 import { DataTools } from "@/components/settings/data-tools"
+import { useLiveQuery } from "dexie-react-hooks"
+import { db } from "@/lib/db"
 
 export function DashboardPage() {
-  const [weakWords, setWeakWords] = useState(0)
-  const [totalWords, setTotalWords] = useState(0)
-  const [challengeReady, setChallengeReady] = useState(0)
-
-  const [dueNow, setDueNow] = useState(0)
-  const [overdue, setOverdue] = useState(0)
-  const [next3Days, setNext3Days] = useState(0)
-  const [learnedL6Plus, setLearnedL6Plus] = useState(0)
-  const [inProgress, setInProgress] = useState(0)
-  const [todayProgress, setTodayProgress] = useState(0)
+  const words = useLiveQuery(() => db.words.toArray());
+  const todayProgress = useLiveQuery(() => db.dailyProgress.get(new Date().toISOString().slice(0, 10)).then(r => r?.count || 0));
+  
   const dailyGoal = 20
 
-  useEffect(() => {
-    const refresh = () => {
-      setWeakWords(getWeakWordsCount())
-      setTotalWords(getTotalWordsCount())
+  if (words === undefined || todayProgress === undefined) {
+    return (
+      <div className="min-h-dvh bg-[#F8FAFC] pb-20 flex items-center justify-center">
+        <p className="text-sm font-medium animate-pulse text-zinc-500">Loading your progress...</p>
+      </div>
+    );
+  }
 
-      setDueNow(getDueNowCount())
-      setOverdue(getOverdueCount())
-      setNext3Days(getNextNDaysCount(3))
-
-      setLearnedL6Plus(getLearnedL6PlusCount())
-      setInProgress(getInProgressCount())
-      setTodayProgress(getTodayProgress())
-
-      setChallengeReady(getChallengeReadyCount(12))
-    }
-
-    refresh()
-
-    const unsubscribe = subscribeWords(() => {
-      refresh()
-    })
-
-    return unsubscribe
-  }, [])
+  const weakWords = getWeakWordsCount(words);
+  const totalWords = getTotalWordsCount(words);
+  const challengeReady = getChallengeReadyCount(words, 12);
+  const dueNow = getDueNowCount(words);
+  const overdue = getOverdueCount(words);
+  const next3Days = getNextNDaysCount(words, 3);
+  const learnedL6Plus = getLearnedL6PlusCount(words);
+  const inProgress = getInProgressCount(words);
 
   return (
     <div className="min-h-dvh bg-[#F8FAFC] pb-20">

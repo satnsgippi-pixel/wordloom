@@ -11,6 +11,7 @@ interface Stage0Props {
   onAnswer: (answer: string, isCorrect: boolean) => void
   disabled?: boolean
   mode?: "normal" | "weakness" | "quiz" | "challenge"
+  words: WordData[]
 }
 
 export function Stage0EnJa({
@@ -18,6 +19,7 @@ export function Stage0EnJa({
   onAnswer,
   disabled,
   mode = "normal",
+  words,
 }: Stage0Props) {
   const [choices, setChoices] = useState<
     { label: string; isCorrect: boolean }[]
@@ -32,13 +34,12 @@ const sentence = useMemo(() => {
   return list[index]
 }, [wordData.id])
 
-  // 選択肢生成
+  // 初回マウント時に選択肢を生成
   useEffect(() => {
-    const pool = getWords()
-
+    const pool = words
     const generated = generateMeaningChoices(wordData, pool)
     setChoices(generated)
-  }, [wordData])
+  }, [wordData, words])
 
   return (
     <div>

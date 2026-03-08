@@ -3,24 +3,21 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { WordData } from "@/lib/types";
-import { loadWords } from "@/lib/storage";
+import { useLiveQuery } from "dexie-react-hooks";
+import { db } from "@/lib/db";
 
 type SortOption = "newest" | "a-z" | "due-soon" | "stage-high";
 
 export default function WordsPage() {
-  const [words, setWords] = useState<WordData[]>([]);
+  const words = useLiveQuery(() => db.words.toArray());
   const [q, setQ] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("newest");
 
-  useEffect(() => {
-    setWords(loadWords());
-  }, []);
-
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
-    let result = words;
+    let result = words || [];
     if (s) {
-      result = words.filter((w) => {
+      result = result.filter((w) => {
         const hay = `${w.word} ${w.meaning}`.toLowerCase();
         return hay.includes(s);
       });
@@ -50,6 +47,14 @@ export default function WordsPage() {
 
     return sorted;
   }, [words, q, sortBy]);
+
+  if (words === undefined) {
+    return (
+      <main className="min-h-screen bg-[#F9FAFB] p-6 text-center text-sm font-medium animate-pulse text-zinc-500">
+        Loading words...
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-[#F9FAFB]">
