@@ -115,21 +115,9 @@ export async function speak(text: string, lang: TTSLang = "en-US") {
 
   // 1. Try Google Cloud TTS via our backend API
   try {
-    // 📱 Safari Autoplay対策: ユーザーアクションの同一同期コールスタック内でAudioを生成する
+    // 📱 Safari対策: ユーザーアクションの同期コールスタック内で Audio インスタンスだけ先に生成
     const audio = new Audio();
     let audioBlocked = false;
-
-    // 📱 追加ハック: iOS Safari 向け「無音再生」による Audio アンロック
-    // ごく短い無音データを同期的に再生して「ユーザー操作で有効化された Audio」と認識させる
-    try {
-      // きわめて短い無音MP3（長大データを避けるため最小限）
-      audio.src = "data:audio/mp3;base64,//uQZAAAAAAAAAAAAAAAAAAAA";
-      // ここでの再生失敗は無視する（目的は「再生試行」そのもの）
-      // iOS Safari では、このタイミングの play 呼び出しが「ユーザー起点」として記録される
-      void audio.play().catch(() => {});
-    } catch {
-      // unlock ができなくても本処理は続行する
-    }
 
     const res = await fetch("/api/tts", {
       method: "POST",
@@ -140,15 +128,48 @@ export async function speak(text: string, lang: TTSLang = "en-US") {
     if (res.ok) {
       const data = await res.json();
       if (data.audioContent) {
-        audio.src = "data:audio/mp3;base64," + data.audioContent;
-        await audio.play().catch(err => {
-          console.error("Audio autoplay was blocked by browser:", err);
-          audioBlocked = true;
-        });
+        try {
+          // Base64 -> Uint8Array -> Blob(audio/mpeg) -> ObjectURL で再生
+          const base64 = String(data.audioContent);
+          const binary = atob(base64);
+          const len = binary.length;
+          const bytes = new Uint8Array(len);
+          for (let i = 0; i < len; i++) {
+            bytes[i] = binary.charCodeAt(i);
+          }
 
-        // ブロックされずに再生できたら終了
-        if (!audioBlocked) {
-          return;
+          const blob = new Blob([bytes], { type: "audio/mpeg" });
+          const blobUrl = URL.createObjectURL(blob);
+
+          audio.src = blobUrl;
+          // iOS Safari 向けに明示的に load を呼んでから再生
+          audio.load();
+
+          // 再生完了・エラー時には ObjectURL を解放
+          const cleanup = () => {
+            try {
+              URL.revokeObjectURL(blobUrl);
+            } catch {
+              // ignore
+            }
+            audio.onended = null;
+            audio.onerror = null;
+          };
+
+          audio.onended = cleanup;
+          audio.onerror = cleanup;
+
+          await audio.play().catch((err) => {
+            console.error("Audio autoplay or decode was blocked by browser:", err);
+            audioBlocked = true;
+          });
+
+          // ブロックされずに再生できたら終了
+          if (!audioBlocked) {
+            return;
+          }
+        } catch (e) {
+          console.warn("Failed to decode or play TTS audio blob, falling back", e);
         }
       }
     } else {
