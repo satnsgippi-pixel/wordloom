@@ -35,7 +35,7 @@ export function DashboardPage() {
 
   const weakWords = getWeakWordsCount(words);
   const totalWords = getTotalWordsCount(words);
-  const challengeReady = getChallengeReadyCount(words, 12);
+  const challengeReady = getChallengeReadyCount(words);
   const dueNow = getDueNowCount(words);
   const overdue = getOverdueCount(words);
   const next3Days = getNextNDaysCount(words, 3);

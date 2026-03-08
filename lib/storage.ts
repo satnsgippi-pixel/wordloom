@@ -18,3 +18,18 @@ export async function getWordById(id: string): Promise<WordData | undefined> {
 export async function getAllWords(): Promise<WordData[]> {
   return await db.words.toArray();
 }
+
+/**
+ * 腕試しモード用: stability インデックスを利用して効率的に候補単語を取得。
+ * minStability は words-store の CHALLENGE_MIN_STABILITY と合わせること。
+ */
+export async function getChallengeReadyWords(
+  minStability: number,
+  now: number = Date.now()
+): Promise<WordData[]> {
+  return db.words
+    .where("stability")
+    .aboveOrEqual(minStability)
+    .filter((w) => !w.weakness && (w.dueAt ?? 0) > now)
+    .toArray();
+}

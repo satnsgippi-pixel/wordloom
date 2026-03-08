@@ -9,6 +9,9 @@ import { getWordById, getAllWords, upsertWord } from "@/lib/storage";
 
 const WEAKNESS_CLEAR_STREAK = 2;
 
+/** 腕試しモード出題条件: stability がこの値以上なら「十分習得済み」とみなす（1〜20の範囲、SRS_TABLE最大11の先） */
+export const CHALLENGE_MIN_STABILITY = 12;
+
 // ===== Normal Study: stage進行ルール =====
 function requiredStreak(stage: number) {
   // stage0-3: 2連続 / stage5-7: 5連続
@@ -287,7 +290,7 @@ export function getWeakWordsCount(words: WordData[]): number {
 const WORDS_CHANGED_EVENT = "wordloom:words-changed";
 
 // ===== Challenge support =====
-export function getChallengeReadyCount(words: WordData[], minStability: number = 12): number {
+export function getChallengeReadyCount(words: WordData[], minStability: number = CHALLENGE_MIN_STABILITY): number {
   return words.filter((w) => (w.stability ?? 0) >= minStability && !w.weakness).length
 }
 

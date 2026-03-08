@@ -21,9 +21,11 @@ import {
   markWeaknessWrong,
   markNormalCorrect,
   markNormalWrong,
+  CHALLENGE_MIN_STABILITY,
 } from "@/lib/words-store"
 import type { WordData } from "@/lib/types"
 import { incrementTodayProgress } from "@/lib/daily-progress"
+import { getChallengeReadyWords } from "@/lib/storage"
 import { useLiveQuery } from "dexie-react-hooks"
 import { db } from "@/lib/db"
 
@@ -72,7 +74,13 @@ export function StudyScreen({ mode = "normal", initialLimit }: Props) {
   const [showResult, setShowResult] = useState(false)
   const [hasInitialized, setHasInitialized] = useState(false)
 
-  const words = useLiveQuery(() => db.words.toArray())
+  const words = useLiveQuery(
+    async () =>
+      mode === "challenge"
+        ? getChallengeReadyWords(CHALLENGE_MIN_STABILITY)
+        : db.words.toArray(),
+    [mode]
+  )
 
   const currentWord: WordData | null = useMemo(() => {
     if (queue.length === 0) return null
@@ -121,24 +129,19 @@ export function StudyScreen({ mode = "normal", initialLimit }: Props) {
       setQueue(picked)
       setQIndex(0)
       setProgress({ current: 1, total: picked.length })
+      setHasInitialized(true) // セッション中はキューを固定し、結果画面表示を保証
       return
     }
 
     if (mode === "challenge") {
-      const now = Date.now()
-
-      const targets = words.filter(
-        (w) =>
-          (w.stability ?? 0) >= 12 &&
-          !w.weakness &&
-          getDueAtSafe(w) > now
-      )
-
+      // getChallengeReadyWords で既に stability/dueAt/weakness でフィルタ済み
+      const targets = words
       const picked = shuffle(targets).slice(0, 10)
 
       setQueue(picked)
       setQIndex(0)
       setProgress({ current: 1, total: picked.length })
+      setHasInitialized(true)
       return
     }
 
