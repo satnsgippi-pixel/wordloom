@@ -113,8 +113,12 @@ export async function speak(text: string, lang: TTSLang = "en-US") {
   const t = (text ?? "").trim();
   if (!t) return;
 
-  // 1. Try Google Cloud TTS via our backend API
+// 1. Try Google Cloud TTS via our backend API
   try {
+    // 📱 Safari Autoplay対策: ユーザーアクションの同一同期コールスタック内でAudioを生成する
+    const audio = new Audio();
+    let audioBlocked = false;
+
     const res = await fetch("/api/tts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -124,9 +128,16 @@ export async function speak(text: string, lang: TTSLang = "en-US") {
     if (res.ok) {
       const data = await res.json();
       if (data.audioContent) {
-        const audio = new Audio("data:audio/mp3;base64," + data.audioContent);
-        await audio.play();
-        return; // Success, no need for fallback
+        audio.src = "data:audio/mp3;base64," + data.audioContent;
+        await audio.play().catch(err => {
+          console.error("Audio autoplay was blocked by browser:", err);
+          audioBlocked = true;
+        });
+
+        // ブロックされずに再生できたら終了
+        if (!audioBlocked) {
+          return;
+        }
       }
     } else {
       console.warn("Google TTS API returned non-OK status:", res.status);
