@@ -1,17 +1,19 @@
 import { NextResponse } from "next/server";
 
+const CORS_HEADERS = { "Access-Control-Allow-Origin": "*" } as const;
+
 export async function POST(req: Request) {
   try {
     const { text, lang } = await req.json();
 
     if (!text) {
-      return NextResponse.json({ error: "No text provided" }, { status: 400 });
+      return NextResponse.json({ error: "No text provided" }, { status: 400, headers: CORS_HEADERS });
     }
 
     const apiKey = process.env.GOOGLE_TTS_API_KEY;
     if (!apiKey) {
       console.error("Missing GOOGLE_TTS_API_KEY text to speech api key.");
-      return NextResponse.json({ error: "Server Configuration Error" }, { status: 500 });
+      return NextResponse.json({ error: "Server Configuration Error" }, { status: 500, headers: CORS_HEADERS });
     }
     
     // Choose appropriate voice depending on the language requested.
@@ -24,10 +26,11 @@ export async function POST(req: Request) {
 
     const apiUrl = `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`;
 
+    // audioEncoding は必ず MP3（OGG_OPUS 等は iOS Safari の decodeAudioData で問題になるため）
     const body = {
       input: { text },
       voice: { languageCode, name: voiceName },
-      audioConfig: { audioEncoding: "MP3" }
+      audioConfig: { audioEncoding: "MP3" as const },
     };
 
     const response = await fetch(apiUrl, {
@@ -41,17 +44,17 @@ export async function POST(req: Request) {
       console.error("Google TTS Backend fail:", response.status, errorText);
       return NextResponse.json(
         { error: "Google TTS API request failed." },
-        { status: response.status }
+        { status: response.status, headers: CORS_HEADERS }
       );
     }
 
     const data = await response.json();
-    return NextResponse.json({ audioContent: data.audioContent });
+    return NextResponse.json({ audioContent: data.audioContent }, { headers: CORS_HEADERS });
   } catch (error) {
     console.error("Error in /api/tts:", error);
     return NextResponse.json(
       { error: "Failed to generate TTS audio" },
-      { status: 500 }
+      { status: 500, headers: CORS_HEADERS }
     );
   }
 }

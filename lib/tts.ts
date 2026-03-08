@@ -9,6 +9,9 @@ export type TTSLang = "en-US" | "ja-JP";
 let cachedVoices: SpeechSynthesisVoice[] | null = null;
 let activeUtterance: SpeechSynthesisUtterance | null = null;
 
+// Web Audio API: ユーザージェスチャ消失後も再生可能にするためグローバルで保持
+let audioCtx: AudioContext | null = null;
+
 function getVoicesSafe(): SpeechSynthesisVoice[] {
   if (typeof window === "undefined") return [];
   if (!("speechSynthesis" in window)) return [];
@@ -113,70 +116,64 @@ export async function speak(text: string, lang: TTSLang = "en-US") {
   const t = (text ?? "").trim();
   if (!t) return;
 
-  // 1. Try Google Cloud TTS via our backend API
-  try {
-    // 📱 Safari対策: ユーザーアクションの同期コールスタック内で Audio インスタンスだけ先に生成
-    const audio = new Audio();
-    let audioBlocked = false;
+  // 📱 同期タイミングで AudioContext を初期化・アンロック（await の前が必須）
+  const Ctx = (typeof window !== "undefined" && (window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext)) || null;
+  if (Ctx && !audioCtx) {
+    audioCtx = new Ctx();
+    console.log("[TTS] AudioContext created, state:", audioCtx.state);
+  }
+  if (audioCtx?.state === "suspended") {
+    void audioCtx.resume();
+    console.log("[TTS] AudioContext resume() called (was suspended)");
+  }
+  console.log("[TTS] audioCtx.state before fetch:", audioCtx?.state ?? "null");
 
+  // 1. Google Cloud TTS → Web Audio API で再生
+  try {
+    console.log("[TTS] fetch start");
     const res = await fetch("/api/tts", {
       method: "POST",
+      mode: "cors",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: t, lang }),
     });
+    console.log("[TTS] fetch done status:", res.status, res.ok ? "OK" : "FAIL");
 
-    if (res.ok) {
+    if (!res.ok) {
+      const errBody = await res.text();
+      console.warn("[TTS] fetch non-OK:", res.status, errBody);
+    } else {
       const data = await res.json();
-      if (data.audioContent) {
+      const base64 = data?.audioContent;
+      if (base64 && audioCtx) {
         try {
-          // Base64 -> Uint8Array -> Blob(audio/mpeg) -> ObjectURL で再生
-          const base64 = String(data.audioContent);
-          const binary = atob(base64);
+          console.log("[TTS] decodeAudioData start, base64 length:", String(base64).length);
+          const binary = atob(String(base64));
           const len = binary.length;
           const bytes = new Uint8Array(len);
           for (let i = 0; i < len; i++) {
             bytes[i] = binary.charCodeAt(i);
           }
+          const arrayBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
 
-          const blob = new Blob([bytes], { type: "audio/mpeg" });
-          const blobUrl = URL.createObjectURL(blob);
+          const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+          console.log("[TTS] decodeAudioData ok, duration:", audioBuffer.duration);
 
-          audio.src = blobUrl;
-          // iOS Safari 向けに明示的に load を呼んでから再生
-          audio.load();
-
-          // 再生完了・エラー時には ObjectURL を解放
-          const cleanup = () => {
-            try {
-              URL.revokeObjectURL(blobUrl);
-            } catch {
-              // ignore
-            }
-            audio.onended = null;
-            audio.onerror = null;
-          };
-
-          audio.onended = cleanup;
-          audio.onerror = cleanup;
-
-          await audio.play().catch((err) => {
-            console.error("Audio autoplay or decode was blocked by browser:", err);
-            audioBlocked = true;
-          });
-
-          // ブロックされずに再生できたら終了
-          if (!audioBlocked) {
-            return;
-          }
+          const source = audioCtx.createBufferSource();
+          source.buffer = audioBuffer;
+          source.connect(audioCtx.destination);
+          source.start(0);
+          console.log("[TTS] source.start(0) done, audioCtx.state:", audioCtx.state);
+          return;
         } catch (e) {
-          console.warn("Failed to decode or play TTS audio blob, falling back", e);
+          console.warn("[TTS] decodeAudioData or play failed:", e);
         }
+      } else {
+        console.log("[TTS] no audioContent or no audioCtx, base64:", !!base64, "audioCtx:", !!audioCtx);
       }
-    } else {
-      console.warn("Google TTS API returned non-OK status:", res.status);
     }
   } catch (err) {
-    console.warn("Failed to fetch Google TTS, falling back to Web Speech API", err);
+    console.warn("[TTS] fetch error:", err);
   }
 
   // 2. Fallback to Web Speech API (speechSynthesis)
