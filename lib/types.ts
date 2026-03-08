@@ -43,4 +43,6 @@ export type WordData = {
   // タイムスタンプ
   createdAt: number; // ms
   updatedAt: number; // ms
+  // 最後に問題を解いた時刻（ms, 任意）
+  lastReviewedAt?: number;
 };

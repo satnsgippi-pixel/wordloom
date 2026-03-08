@@ -111,6 +111,7 @@ export async function markNormalCorrect(wordId: string) {
     stability: nextStability,
     dueAt: computeNextDueAt(now, nextStability, true),
     updatedAt: now,
+    lastReviewedAt: now,
   }
 
   await upsertWord(updated)
@@ -149,6 +150,7 @@ export async function markNormalWrong(wordId: string, stage: number) {
       updatedAt: now,
     },
     updatedAt: now,
+    lastReviewedAt: now,
   }
 
   await upsertWord(updated)
@@ -169,13 +171,17 @@ export async function markWeaknessWrong(wordId: string, stage: number) {
   const target = await getWordById(wordId);
   if (!target) return;
 
+  const now = Date.now();
+
   const updated: WordData = {
     ...target,
     weakness: {
       stage,
       streak: 0,
-      updatedAt: Date.now(),
+      updatedAt: now,
     },
+    updatedAt: now,
+    lastReviewedAt: now,
   };
 
   await upsertWord(updated);
@@ -194,6 +200,8 @@ export async function markWeaknessCorrect(wordId: string) {
   const current = target.weakness;
   if (!current) return; // weakness対象でなければ何もしない
 
+  const now = Date.now();
+
   const nextStreak = (current.streak ?? 0) + 1;
   const shouldClear = nextStreak >= WEAKNESS_CLEAR_STREAK;
 
@@ -204,8 +212,10 @@ export async function markWeaknessCorrect(wordId: string) {
       : {
           ...current,
           streak: nextStreak,
-          updatedAt: Date.now(),
+          updatedAt: now,
         },
+    updatedAt: now,
+    lastReviewedAt: now,
   };
 
   await upsertWord(updated);

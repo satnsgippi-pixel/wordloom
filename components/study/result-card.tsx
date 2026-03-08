@@ -40,7 +40,7 @@ export function ResultCard({
   }, [wordData.id, wordData.qaMemo])
 
   const sentences: SentenceData[] = useMemo(
-    () => (wordData.sentences ?? []).slice(0, 2),
+    () => wordData.sentences ?? [],
     [wordData]
   )
 
@@ -165,7 +165,7 @@ export function ResultCard({
             )}
           </button>
           {showMemo && (
-            <div className="p-3 pt-0 bg-white border-t border-[#E5E7EB]">
+            <div className="p-3 pt-0 bg-white border-t border-[#E5E7EB] min-h-[320px] flex flex-col">
               <div className="flex justify-end mb-2 mt-2">
                 <button
                   type="button"
@@ -184,8 +184,8 @@ export function ResultCard({
                 value={memo}
                 onChange={(e) => setMemo(e.target.value)}
                 placeholder="AIの回答やメモをここに…"
-                rows={4}
-                className="w-full p-3 text-sm text-[#111827] bg-[#F8FAFC] border border-[#E5E7EB] rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-[#93C5FD] placeholder:text-[#9CA3AF]"
+                rows={6}
+                className="w-full flex-1 min-h-[220px] p-3 text-sm text-[#111827] bg-[#F8FAFC] border border-[#E5E7EB] rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-[#93C5FD] placeholder:text-[#9CA3AF]"
               />
               <button
                 type="button"

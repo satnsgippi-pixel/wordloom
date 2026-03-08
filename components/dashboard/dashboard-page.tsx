@@ -46,6 +46,14 @@ export function DashboardPage() {
   const inProgress = getInProgressCount(words);
   const remaining = Math.max(0, TARGET_TOTAL - learnedL6Plus - inProgress);
 
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const todayStudiedCount = words.filter(
+    (w) =>
+      typeof w.lastReviewedAt === "number" &&
+      w.lastReviewedAt >= startOfToday.getTime()
+  ).length;
+
   const fmt = (n: number) => new Intl.NumberFormat("en-US").format(n);
   const studyHref = `/study?limit=${dailyTarget}`;
 
@@ -113,6 +121,13 @@ export function DashboardPage() {
                   Today&apos;s Due: {fmt(dueNow)} | Overdue: {fmt(overdue)}
                 </span>
               </Link>
+            </div>
+
+            <div className="mb-4 text-center text-xs text-slate-500">
+              今日学習した問題数:{" "}
+              <span className="font-semibold text-slate-700">
+                {fmt(todayStudiedCount)}
+              </span>
             </div>
 
             <div className="grid grid-cols-2 gap-3 md:gap-4">
