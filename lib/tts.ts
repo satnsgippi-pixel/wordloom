@@ -113,11 +113,23 @@ export async function speak(text: string, lang: TTSLang = "en-US") {
   const t = (text ?? "").trim();
   if (!t) return;
 
-// 1. Try Google Cloud TTS via our backend API
+  // 1. Try Google Cloud TTS via our backend API
   try {
     // 📱 Safari Autoplay対策: ユーザーアクションの同一同期コールスタック内でAudioを生成する
     const audio = new Audio();
     let audioBlocked = false;
+
+    // 📱 追加ハック: iOS Safari 向け「無音再生」による Audio アンロック
+    // ごく短い無音データを同期的に再生して「ユーザー操作で有効化された Audio」と認識させる
+    try {
+      // きわめて短い無音MP3（長大データを避けるため最小限）
+      audio.src = "data:audio/mp3;base64,//uQZAAAAAAAAAAAAAAAAAAAA";
+      // ここでの再生失敗は無視する（目的は「再生試行」そのもの）
+      // iOS Safari では、このタイミングの play 呼び出しが「ユーザー起点」として記録される
+      void audio.play().catch(() => {});
+    } catch {
+      // unlock ができなくても本処理は続行する
+    }
 
     const res = await fetch("/api/tts", {
       method: "POST",
