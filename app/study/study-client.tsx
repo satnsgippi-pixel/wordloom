@@ -10,7 +10,7 @@ export default function StudyClient() {
 
   const initialLimit =
     limitParam != null
-      ? Math.min(100, Math.max(20, parseInt(limitParam, 10) || 20))
+      ? Math.min(100, Math.max(10, parseInt(limitParam, 10) || 20))
       : undefined;
 
   return <StudyScreen initialLimit={initialLimit} />;
