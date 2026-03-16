@@ -7,17 +7,12 @@ import { AudioButton } from "@/components/study/audio-button"
 import type { WordData } from "@/lib/types"
 import { setQaMemo } from "@/lib/words-store"
 
-const INITIAL_EXAMPLES = 2
-
 export function WordDetailCard({ word }: { word: WordData }) {
-  const [visibleCount, setVisibleCount] = useState(INITIAL_EXAMPLES)
   const [showMemo, setShowMemo] = useState(false)
   const [memo, setMemo] = useState("")
   const [saved, setSaved] = useState(false)
 
   const examples = word.sentences ?? []
-  const visible = examples.slice(0, visibleCount)
-  const hasMore = examples.length > visibleCount
 
   useEffect(() => {
     setMemo(word.qaMemo ?? "")
@@ -59,7 +54,7 @@ export function WordDetailCard({ word }: { word: WordData }) {
       {/* 例文のみ（タブなし） */}
       <div className="min-h-[80px]">
         <div className="space-y-3">
-          {visible.map((s, idx) => (
+          {examples.map((s, idx) => (
             <div
               key={s.id ?? idx}
               className="p-3 rounded-lg bg-white border border-[#E5E7EB]"
@@ -82,18 +77,6 @@ export function WordDetailCard({ word }: { word: WordData }) {
           {examples.length === 0 && (
             <p className="text-sm text-[#6B7280]">No examples</p>
           )}
-
-          {hasMore && (
-            <button
-              type="button"
-              onClick={() =>
-                setVisibleCount((v) => Math.min(v + 10, examples.length))
-              }
-              className="w-full py-3 text-base font-medium text-[#2563EB] bg-[#EFF6FF] rounded-lg hover:bg-[#DBEAFE] transition-colors min-h-[48px] focus:outline-none focus:ring-2 focus:ring-[#93C5FD] focus:ring-offset-2"
-            >
-              +10 more
-            </button>
-          )}
         </div>
 
         {/* 深掘りメモ（アコーディオン） */}
@@ -112,13 +95,13 @@ export function WordDetailCard({ word }: { word: WordData }) {
             )}
           </button>
           {showMemo && (
-            <div className="p-3 pt-0 bg-white border-t border-[#E5E7EB]">
+            <div className="p-3 pt-0 bg-white border-t border-[#E5E7EB] min-h-[320px] flex flex-col">
               <textarea
                 value={memo}
                 onChange={(e) => setMemo(e.target.value)}
                 placeholder="AIの回答やメモをここに…"
-                rows={4}
-                className="w-full p-3 text-sm text-[#111827] bg-[#F8FAFC] border border-[#E5E7EB] rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-[#93C5FD] placeholder:text-[#9CA3AF]"
+                rows={10}
+                className="w-full flex-1 min-h-[260px] p-3 text-sm text-[#111827] bg-[#F8FAFC] border border-[#E5E7EB] rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-[#93C5FD] placeholder:text-[#9CA3AF] mt-3"
               />
               <button
                 type="button"

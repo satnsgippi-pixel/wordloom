@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { playCorrect, playWrong } from "@/lib/sfx"
+import { useSfx } from "@/lib/sfx"
 
 interface MultipleChoiceProps {
   options: { label: string; isCorrect: boolean }[]
@@ -10,6 +10,7 @@ interface MultipleChoiceProps {
 }
 
 export function MultipleChoice({ options, onSelect, disabled }: MultipleChoiceProps) {
+  const { playCorrect, playWrong } = useSfx()
   const [selected, setSelected] = useState<string | null>(null)
   const [revealed, setRevealed] = useState(false)
 

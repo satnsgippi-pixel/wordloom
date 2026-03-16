@@ -5,7 +5,7 @@ import { CheckCircle2, XCircle, Pencil } from "lucide-react"
 import Link from "next/link"
 import { AudioButton } from "./audio-button"
 import type { WordData, SentenceData } from "@/lib/types"
-import { playCorrect, playWrong } from "@/lib/sfx"
+import { useSfx } from "@/lib/sfx"
 import { setQaMemo } from "@/lib/words-store"
 interface ResultCardProps {
   isCorrect: boolean
@@ -22,6 +22,7 @@ export function ResultCard({
   onNext,
   isLastQuestion = false,
 }: ResultCardProps) {
+  const { playCorrect, playWrong } = useSfx()
   const [showMemo, setShowMemo] = useState(false)
   const [memo, setMemo] = useState("")
   const [saved, setSaved] = useState(false)
@@ -31,7 +32,7 @@ export function ResultCard({
   useEffect(() => {
     if (isCorrect === true) playCorrect()
     if (isCorrect === false) playWrong()
-  }, [isCorrect])
+  }, [isCorrect, playCorrect, playWrong])
 
   useEffect(() => {
     setMemo(wordData.qaMemo ?? "")

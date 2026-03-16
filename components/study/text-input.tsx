@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { playCorrect, playWrong } from "@/lib/sfx"
+import { useSfx } from "@/lib/sfx"
 
 interface TextInputProps {
   placeholder?: string
@@ -11,6 +11,7 @@ interface TextInputProps {
 }
 
 export function TextInput({ placeholder = "Type your answer", onSubmit, correctAnswer, disabled }: TextInputProps) {
+  const { playCorrect, playWrong } = useSfx()
   const [value, setValue] = useState("")
   const [revealed, setRevealed] = useState(false)
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null)
