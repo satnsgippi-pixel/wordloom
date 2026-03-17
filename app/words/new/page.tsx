@@ -329,10 +329,10 @@ export default function NewWordPage() {
                       body: JSON.stringify({ word, meaning }),
                     });
                     if (!res.ok) throw new Error("Failed to fetch detail");
-                    const data = await res.json();
-                    if (data.detail) {
+                    const text = await res.text();
+                    if (text) {
                       setQaMemo((prev) => 
-                        prev.trim() ? prev + "\n\n" + data.detail : data.detail
+                        prev.trim() ? prev + "\n\n" + text : text
                       );
                     }
                   } catch (err) {

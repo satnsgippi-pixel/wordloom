@@ -52,8 +52,10 @@ export async function POST(request: Request) {
       throw new Error('Gemini API did not return text');
     }
 
-    // JSONで包んでフロントエンドに返す
-    return NextResponse.json({ detail: response.text });
+    // そのままテキスト文字列としてフロントエンドに返す
+    return new NextResponse(response.text, {
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    });
   } catch (error) {
     console.error('Gemini API Detail Error:', error);
     return NextResponse.json(

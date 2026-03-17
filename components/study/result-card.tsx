@@ -65,9 +65,9 @@ export function ResultCard({
         body: JSON.stringify({ word: wordData.word, meaning: wordData.meaning }),
       })
       if (!res.ok) throw new Error("Failed to fetch detail")
-      const data = await res.json()
-      if (data.detail) {
-        setMemo((prev) => (prev.trim() ? prev + "\n\n" + data.detail : data.detail))
+      const text = await res.text()
+      if (text) {
+        setMemo((prev) => (prev.trim() ? prev + "\n\n" + text : text))
       }
     } catch (err) {
       console.error(err)
