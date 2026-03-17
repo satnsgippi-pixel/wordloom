@@ -3,6 +3,8 @@ import { GoogleGenAI } from '@google/genai';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
+export const maxDuration = 60; // Vercel timeout extension
+
 export async function POST(request: Request) {
   try {
     const { word, meaning } = await request.json();
@@ -39,22 +41,36 @@ export async function POST(request: Request) {
 
     const promptContent = meaning ? `英単語: ${word}\n意味: ${meaning}` : `英単語: ${word}`;
 
-    const response = await ai.models.generateContent({
+    const stream = await ai.models.generateContentStream({
       model: 'gemini-2.5-flash',
       contents: promptContent,
       config: {
         systemInstruction,
-        // responseMimeType is text/plain by default for standard generateContent, but we can omit or specify 'text/plain'
       },
     });
 
-    if (!response.text) {
-      throw new Error('Gemini API did not return text');
-    }
+    // Create a readable stream for the frontend
+    const readable = new ReadableStream({
+      async start(controller) {
+        try {
+          for await (const chunk of stream) {
+            if (chunk.text) {
+              controller.enqueue(new TextEncoder().encode(chunk.text));
+            }
+          }
+          controller.close();
+        } catch (err) {
+          controller.error(err);
+        }
+      },
+    });
 
-    // そのままテキスト文字列としてフロントエンドに返す
-    return new NextResponse(response.text, {
-      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    return new NextResponse(readable, {
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+      },
     });
   } catch (error) {
     console.error('Gemini API Detail Error:', error);

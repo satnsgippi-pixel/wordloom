@@ -380,11 +380,20 @@ export default function EditWordPage() {
                       body: JSON.stringify({ word, meaning }),
                     });
                     if (!res.ok) throw new Error("Failed to fetch detail");
-                    const text = await res.text();
-                    if (text) {
-                      setQaMemo((prev) => 
-                        prev.trim() ? prev + "\n\n" + text : text
-                      );
+                    
+                    setQaMemo(prev => prev.trim() ? prev + "\n\n" : "");
+                    
+                    const reader = res.body?.getReader();
+                    const decoder = new TextDecoder();
+                    if (!reader) throw new Error("No readable stream");
+
+                    while (true) {
+                      const { done, value } = await reader.read();
+                      if (done) break;
+                      const text = decoder.decode(value, { stream: true });
+                      if (text) {
+                        setQaMemo((prev) => prev + text);
+                      }
                     }
                   } catch (err) {
                     console.error(err);
