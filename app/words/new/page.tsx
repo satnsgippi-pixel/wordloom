@@ -32,6 +32,7 @@ export default function NewWordPage() {
   const [meaning, setMeaning] = useState("");
   const [qaMemo, setQaMemo] = useState("");
   const [isGeneratingMemo, setIsGeneratingMemo] = useState(false);
+  const [isAutoCompleting, setIsAutoCompleting] = useState(false);
 
   const [sentencesDraft, setSentencesDraft] = useState<SentenceDraft[]>([
     {
@@ -248,9 +249,48 @@ export default function NewWordPage() {
         {/* Word / Meaning */}
         <div className="space-y-4 mb-6">
           <div>
-            <label className="block text-sm font-medium text-[#6B7280] mb-2">
-              Word / Phrase
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-[#6B7280]">
+                Word / Phrase
+              </label>
+              <button
+                type="button"
+                onClick={async () => {
+                  const firstEn = sentencesDraft[0]?.en;
+                  if (!word.trim() || !firstEn?.trim()) {
+                    alert("Please enter a word and the first English sentence to autocomplete.");
+                    return;
+                  }
+                  setIsAutoCompleting(true);
+                  try {
+                    const res = await fetch("/api/ai-complete", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ word, sentence: firstEn }),
+                    });
+                    if (!res.ok) throw new Error("Failed to autocomplete");
+                    const data = await res.json();
+                    if (data.meaning) setMeaning(data.meaning);
+                    if (data.translation) updateSentenceJa(sentencesDraft[0].id, data.translation);
+                  } catch (err) {
+                    console.error(err);
+                    alert("Failed to autocomplete.");
+                  } finally {
+                    setIsAutoCompleting(false);
+                  }
+                }}
+                disabled={isAutoCompleting || !word.trim() || !sentencesDraft[0]?.en?.trim()}
+                className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
+                  isAutoCompleting
+                    ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                    : (word.trim() && sentencesDraft[0]?.en?.trim())
+                    ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+                    : "bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed"
+                }`}
+              >
+                {isAutoCompleting ? "生成中..." : "✨ AIで補完"}
+              </button>
+            </div>
             <input
               value={word}
               onChange={(e) => setWord(e.target.value)}
