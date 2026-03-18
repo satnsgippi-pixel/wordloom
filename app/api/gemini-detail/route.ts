@@ -42,7 +42,7 @@ export async function POST(request: Request) {
     const promptContent = meaning ? `英単語: ${word}\n意味: ${meaning}` : `英単語: ${word}`;
 
     const stream = await ai.models.generateContentStream({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.5-flash',
       contents: promptContent,
       config: {
         systemInstruction,
@@ -76,15 +76,17 @@ export async function POST(request: Request) {
     console.error('Gemini API Detail Error:', error);
 
     // 429 Quota Exceeded error handling
-    const isQuotaError = 
-      error?.status === 429 || 
+    const isQuotaError =
+      error?.status === 429 ||
       (error?.message && error.message.toLowerCase().includes('quota'));
+    const isNotFoundError = error?.status === 404 ||
+      (error?.message && error.message.toLowerCase().includes('not found'));
 
-    if (isQuotaError) {
+    if (isQuotaError || isNotFoundError) {
       return new NextResponse(
-        "APIの無料利用枠（1日の上限）に達しました。\n明日またお試しいただくか、しばらく時間をおいてください。",
+        "現在AIが混み合っているか、無料利用枠（1日の上限）に達しました。\n明日またお試しいただくか、しばらく時間をおいてください。",
         {
-          status: 429,
+          status: error?.status === 404 ? 404 : 429,
           headers: { 'Content-Type': 'text/plain; charset=utf-8' },
         }
       );

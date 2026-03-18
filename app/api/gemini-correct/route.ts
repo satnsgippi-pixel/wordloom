@@ -54,8 +54,19 @@ export async function POST(request: Request) {
     const data = JSON.parse(response.text);
 
     return NextResponse.json(data);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Gemini API Correct Error:', error);
+
+    const isQuotaError = error?.status === 429 || (error?.message && error.message.toLowerCase().includes('quota'));
+    const isNotFoundError = error?.status === 404 || (error?.message && error.message.toLowerCase().includes('not found'));
+
+    if (isQuotaError || isNotFoundError) {
+      return NextResponse.json(
+        { error: '現在AIが混み合っているか、利用制限に達しました。しばらく時間をおいてから再度お試しください。' },
+        { status: error?.status === 404 ? 404 : 429 }
+      );
+    }
+
     return NextResponse.json(
       { error: 'Failed to correct sentence' },
       { status: 500 }
