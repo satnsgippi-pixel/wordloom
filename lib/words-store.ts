@@ -40,7 +40,7 @@ const SRS_TABLE: { min: number; days: number }[] = [
 ]
 
 const STABILITY_MIN = 1
-const STABILITY_MAX = 20
+const STABILITY_MAX = 11
 
 function intervalDaysFromStability(stability: number) {
   const s = clamp(Math.round(stability), STABILITY_MIN, STABILITY_MAX)
@@ -90,7 +90,7 @@ export async function markNormalCorrect(wordId: string) {
       : 1
 
   // 正解で微増
-  const nextStability = clamp(prevStability + 0.5, STABILITY_MIN, STABILITY_MAX)
+  const nextStability = clamp(prevStability + 1, STABILITY_MIN, STABILITY_MAX)
 
   // stage進行
   const nextStreak = (target.stageStreak ?? 0) + 1
