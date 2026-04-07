@@ -13,17 +13,21 @@ export interface ExportPayload {
   dailyProgress: DailyProgress[]
 }
 
-/** IndexedDB から全データを取得し、JSON ファイルとしてダウンロード */
-export async function exportWords(): Promise<void> {
+export async function getExportPayload(): Promise<ExportPayload> {
   const words = await db.words.toArray()
   const dailyProgress = await db.dailyProgress.toArray()
 
-  const payload: ExportPayload = {
+  return {
     version: EXPORT_VERSION,
     exportedAt: Date.now(),
     words,
     dailyProgress,
   }
+}
+
+/** IndexedDB から全データを取得し、JSON ファイルとしてダウンロード */
+export async function exportWords(): Promise<void> {
+  const payload = await getExportPayload()
 
   const json = JSON.stringify(payload, null, 2)
   const blob = new Blob([json], { type: "application/json" })

@@ -1,6 +1,6 @@
 "use client"
 
-import { exportWords, importWords } from "@/lib/export-import"
+import { exportWords, importWords, getExportPayload } from "@/lib/export-import"
 import { useState, useRef } from "react"
 
 export function DataTools() {
@@ -21,6 +21,54 @@ export function DataTools() {
       setLoading(false)
     }
   }
+
+  const handleCloudSave = async () => {
+    setMessage(null)
+    setLoading(true)
+    try {
+      const payload = await getExportPayload()
+      const res = await fetch("/api/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) {
+        throw new Error(`Server returned ${res.status}`)
+      }
+      setMessage("クラウドに保存しました")
+    } catch (e) {
+      setMessage(`クラウドに保存失敗: ${String(e)}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleCloudFetch = async () => {
+    setMessage(null)
+    setLoading(true)
+    try {
+      const res = await fetch("/api/sync")
+      if (!res.ok) {
+        if (res.status === 404) {
+          throw new Error("クラウドにデータが見つかりません")
+        }
+        throw new Error(`Server returned ${res.status}`)
+      }
+      const data = await res.json()
+      const jsonString = JSON.stringify(data)
+      const result = await importWords(jsonString)
+      if (result.ok) {
+        setMessage(`クラウドから取得完了（${result.importedWords}件の単語、${result.importedProgress}件の進捗）→ リロードします`)
+      } else {
+        setMessage(`クラウドから取得失敗: ${result.error}`)
+      }
+    } catch (e) {
+      setMessage(`クラウドから取得失敗: ${String(e)}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
 
   const handleImportFromPaste = async () => {
     if (!json.trim()) {
@@ -67,10 +115,32 @@ export function DataTools() {
 
   return (
     <div className="space-y-3">
+      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-3">
+        <p className="text-sm font-medium text-blue-900">クラウド同期 (Vercel KV)</p>
+        <div className="flex gap-2">
+          <button
+            onClick={handleCloudSave}
+            disabled={loading}
+            className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg disabled:opacity-60 hover:bg-blue-700"
+          >
+            クラウドに保存
+          </button>
+          <button
+            onClick={handleCloudFetch}
+            disabled={loading}
+            className="flex-1 px-4 py-2 text-sm font-medium text-blue-600 bg-white border border-blue-200 rounded-lg disabled:opacity-60 hover:bg-blue-50"
+          >
+            クラウドから取得
+          </button>
+        </div>
+      </div>
+
+      <hr className="border-[#E5E7EB] my-4" />
+
       <button
         onClick={handleExport}
         disabled={loading}
-        className="w-full px-4 py-2 text-sm font-medium text-white bg-[#2563EB] rounded-lg disabled:opacity-60"
+        className="w-full px-4 py-2 text-sm font-medium text-white bg-[#4B5563] rounded-lg disabled:opacity-60 hover:bg-[#374151]"
       >
         {loading ? "処理中..." : "エクスポート（IndexedDB → JSON ファイル）"}
       </button>
