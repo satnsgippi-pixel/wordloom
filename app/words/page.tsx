@@ -74,6 +74,10 @@ export default function WordsPage() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search word / meaning..."
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck="false"
             className="w-full px-4 py-3 text-base text-[#111827] bg-white border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#93C5FD] focus:border-transparent"
           />
           <select

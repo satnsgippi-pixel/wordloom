@@ -73,6 +73,10 @@ export function TextInput({ placeholder = "Type your answer", onSubmit, correctA
         onChange={(e) => setValue(e.target.value)}
         placeholder={placeholder}
         disabled={disabled || revealed}
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="none"
+        spellCheck="false"
         className={`w-full px-4 py-3 text-base text-[#111827] ${bgColor} border ${borderColor} rounded-lg min-h-[48px] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#93C5FD] focus:border-transparent transition-colors ${
           disabled || revealed ? "opacity-60 cursor-not-allowed" : ""
         }`}

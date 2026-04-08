@@ -345,6 +345,10 @@ export default function EditWordPage() {
             <input
               value={word}
               onChange={(e) => setWord(e.target.value)}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck="false"
               className="w-full px-4 py-3 bg-white border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#93C5FD]"
             />
           </div>

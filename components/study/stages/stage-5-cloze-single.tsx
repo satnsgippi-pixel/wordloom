@@ -152,6 +152,10 @@ export function Stage5ClozeSingle({ wordData, onAnswer, disabled }: Stage5Props)
           onChange={(e) => setInput(e.target.value)}
           disabled={disabled}
           placeholder="Type the missing phrase"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="none"
+          spellCheck="false"
           className="w-full px-4 py-3 text-base border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#93C5FD]"
         />
       </div>
