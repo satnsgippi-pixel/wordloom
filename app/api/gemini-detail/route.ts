@@ -7,7 +7,7 @@ export const maxDuration = 60; // Vercel timeout extension
 
 export async function POST(request: Request) {
   try {
-    const { word, meaning } = await request.json();
+    const { word, meaning, action = 'nuance', extraInput = '' } = await request.json();
 
     if (!word || typeof word !== 'string') {
       return NextResponse.json(
@@ -17,29 +17,34 @@ export async function POST(request: Request) {
     }
 
     const systemInstruction = `
-あなたは、難しい言葉を使わずに教えるのが得意な英語講師です。提供された英単語と意味について、以下のルールで解説を出力してください。
+あなたは、難しい言葉を使わずに教えるのが得意な英語講師です。提供されたプロンプトに対して、以下のルールで解説を出力してください。
 
 【ルール】
-アスタリスク（*）やシャープ（#）などの記号は一切使わないでください。
-強調したい部分は 【 】（すみ付き括弧）で囲んでください。（多用厳禁）
-中学生でもわかるような、平易で日常的な日本語を使ってください。
-前置きや挨拶は一切含めないでください。
-
-【項目と書き方】
-■語感のイメージ
-（その単語が持つ「空気感」を、1〜2行で説明）
-
-■いつ使うか
-（フォーマルかカジュアルか。どんな場面で使うのが自然か）
-
-■似た単語との違い
-（「A（今回の単語）は〇〇だけど、B（似た単語）は××」という形式で、主語を明確にして1つだけ違いを提示）
-
-■注意点
-（間違えやすい使い方や、一緒に使ってはいけない言葉、勘違いしやすいポイントを1つ教えてください。）
+- アスタリスク（*）やシャープ（#）などのMarkdown記号は一切使わないでください。
+- 強調したい部分は 【 】（すみ付き括弧）で囲んでください。（多用厳禁）
+- 見出しには ■ を使って、スマホで見やすい構造にしてください。
+- 中学生でもわかるような、平易で日常的な日本語を使ってください。
+- 丁寧語（です/ます調）で回答してください。
+- 前置きや挨拶は一切含めず、すぐに本題に入ってください。
 `;
 
-    const promptContent = meaning ? `英単語: ${word}\n意味: ${meaning}` : `英単語: ${word}`;
+    let promptContent = meaning ? `対象の英単語: ${word}\n意味: ${meaning}\n\n` : `対象の英単語: ${word}\n\n`;
+
+    switch (action) {
+      case 'compare':
+        promptContent += `指示内容: 「${word}」と「${extraInput}」の違い、使い分けを教えてください。`;
+        break;
+      case 'etymology':
+        promptContent += `指示内容: 「${word}」の語源や成り立ち、歴史を教えてください。`;
+        break;
+      case 'free':
+        promptContent += `指示内容: ${extraInput}`;
+        break;
+      case 'nuance':
+      default:
+        promptContent += `指示内容: 「${word}」の語感、ニュアンス、フォーマル度、よく使われる場面を詳しく説明し、最後に似た単語との違いや注意すべき点を簡潔に教えてください。`;
+        break;
+    }
 
     const stream = await ai.models.generateContentStream({
       model: 'gemini-2.5-flash',
