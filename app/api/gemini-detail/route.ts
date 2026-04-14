@@ -42,7 +42,7 @@ export async function POST(request: Request) {
         break;
       case 'nuance':
       default:
-        promptContent += `指示内容: 「${word}」の語感、ニュアンス、フォーマル度、よく使われる場面を詳しく説明し、最後に似た単語との違いや注意すべき点を簡潔に教えてください。`;
+        promptContent += `指示内容: 「${word}」のコアイメージ（語感、ニュアンス、フォーマル度）を簡潔に教えてください。`;
         break;
     }
 
