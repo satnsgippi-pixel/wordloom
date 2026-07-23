@@ -145,9 +145,11 @@ export function StudyScreen({ mode = "normal", initialLimit }: Props) {
       return
     }
 
-    // Normal: dueAt <= now のみ（最大 limit、Dashboard の +10 more で 30 など）
-    const dueWords = words.filter((w) => getDueAtSafe(w) <= now)
-    const first = shuffle(dueWords).slice(0, limit)
+    // Normal: dueAt <= now のみ、dueAt が古い順（一番待たされている順）に最大 limit 件
+    const dueWords = words
+      .filter((w) => getDueAtSafe(w) <= now)
+      .sort((a, b) => getDueAtSafe(a) - getDueAtSafe(b))
+    const first = dueWords.slice(0, limit)
 
     setQueue(first)
     setQIndex(0)
