@@ -11,6 +11,23 @@ let activeUtterance: SpeechSynthesisUtterance | null = null;
 
 // Web Audio API: ユーザージェスチャ消失後も再生可能にするためグローバルで保持
 let audioCtx: AudioContext | null = null;
+/** Google Cloud TTS 再生中の BufferSource（重ね再生防止用） */
+let activeTtsSource: AudioBufferSourceNode | null = null;
+
+function stopActiveTtsSource() {
+  if (!activeTtsSource) return;
+  try {
+    activeTtsSource.stop();
+  } catch {
+    // 既に停止済みなど
+  }
+  try {
+    activeTtsSource.disconnect();
+  } catch {
+    // ignore
+  }
+  activeTtsSource = null;
+}
 
 function getVoicesSafe(): SpeechSynthesisVoice[] {
   if (typeof window === "undefined") return [];
@@ -159,9 +176,23 @@ export async function speak(text: string, lang: TTSLang = "en-US") {
           const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
           console.log("[TTS] decodeAudioData ok, duration:", audioBuffer.duration);
 
+          // 前の Google TTS / SpeechSynthesis を止めてから新しい音声を再生
+          stopActiveTtsSource();
+          try {
+            window.speechSynthesis?.cancel();
+          } catch {
+            // ignore
+          }
+
           const source = audioCtx.createBufferSource();
           source.buffer = audioBuffer;
           source.connect(audioCtx.destination);
+          source.onended = () => {
+            if (activeTtsSource === source) {
+              activeTtsSource = null;
+            }
+          };
+          activeTtsSource = source;
           source.start(0);
           console.log("[TTS] source.start(0) done, audioCtx.state:", audioCtx.state);
           return;
@@ -184,7 +215,8 @@ export async function speak(text: string, lang: TTSLang = "en-US") {
   const voices = cachedVoices && cachedVoices.length > 0 ? cachedVoices : await ensureVoicesReady();
   const voice = pickVoice(voices, lang);
 
-  // Stop any current speech to avoid overlapping / wrong voice reuse immediately before speaking
+  // Stop any current Google TTS / speech to avoid overlapping
+  stopActiveTtsSource();
   try {
     synth.cancel();
   } catch {
