@@ -4,11 +4,12 @@ import { useEffect, useMemo, useState } from "react"
 import { AudioButton } from "../audio-button"
 import { MultipleChoice } from "../multiple-choice"
 import type { WordData } from "@/lib/types"
-import { getWords, generateMeaningChoices } from "@/lib/words-store"
+import { generateMeaningChoices } from "@/lib/words-store"
+import { pickStudySentence } from "@/lib/study-sentence"
 
 interface Stage0Props {
   wordData: WordData
-  onAnswer: (answer: string, isCorrect: boolean) => void
+  onAnswer: (answer: string, isCorrect: boolean, sentenceId?: string) => void
   disabled?: boolean
   mode?: "normal" | "weakness" | "quiz" | "challenge"
   words: WordData[]
@@ -25,14 +26,14 @@ export function Stage0EnJa({
     { label: string; isCorrect: boolean }[]
   >([])
 
-  // 表示する例文をランダムに1つ選ぶ（1問中は固定）
-const sentence = useMemo(() => {
-  const list = wordData.sentences ?? []
-  if (list.length === 0) return null
+  const preferredSentenceId =
+    mode === "weakness" ? wordData.weakness?.sentenceId : undefined
 
-  const index = Math.floor(Math.random() * list.length)
-  return list[index]
-}, [wordData.id])
+  // 表示する例文を1つ選ぶ（弱点復習時は保存した例文を優先、1問中は固定）
+  const sentence = useMemo(() => {
+    const list = wordData.sentences ?? []
+    return pickStudySentence(list, preferredSentenceId)
+  }, [wordData.id, preferredSentenceId])
 
   // 初回マウント時に選択肢を生成
   useEffect(() => {
@@ -73,7 +74,9 @@ const sentence = useMemo(() => {
 
       <MultipleChoice
         options={choices}
-        onSelect={onAnswer}
+        onSelect={(answer, isCorrect) =>
+          onAnswer(answer, isCorrect, sentence?.id)
+        }
         disabled={disabled}
       />
     </div>

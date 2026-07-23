@@ -2,22 +2,31 @@
 
 import { useEffect, useMemo, useState } from "react"
 import type { WordData, SentenceData } from "@/lib/types"
+import { pickStudySentence } from "@/lib/study-sentence"
 
 interface Stage7Props {
   wordData: WordData
-  onAnswer: (answer: string, isCorrect: boolean) => void
+  onAnswer: (answer: string, isCorrect: boolean, sentenceId?: string) => void
   disabled?: boolean
+  mode?: "normal" | "weakness" | "quiz" | "challenge"
 }
 
-export function Stage7SelfJudge({ wordData, onAnswer, disabled }: Stage7Props) {
-  // ✅ 日本語・英語が揃っている例文から1つ選ぶ（1問中は固定）
+export function Stage7SelfJudge({
+  wordData,
+  onAnswer,
+  disabled,
+  mode = "normal",
+}: Stage7Props) {
+  const preferredSentenceId =
+    mode === "weakness" ? wordData.weakness?.sentenceId : undefined
+
+  // ✅ 日本語・英語が揃っている例文から1つ選ぶ（弱点復習時は保存した例文を優先）
   const sentence: SentenceData | null = useMemo(() => {
     const list = (wordData.sentences ?? []).filter(
       (s) => (s?.ja ?? "").trim().length > 0 && (s?.en ?? "").trim().length > 0
     )
-    if (list.length === 0) return null
-    return list[Math.floor(Math.random() * list.length)]
-  }, [wordData.id])
+    return pickStudySentence(list, preferredSentenceId)
+  }, [wordData.id, preferredSentenceId])
 
   const [revealed, setRevealed] = useState(false)
 
@@ -42,12 +51,12 @@ export function Stage7SelfJudge({ wordData, onAnswer, disabled }: Stage7Props) {
 
   const handleOk = () => {
     if (disabled) return
-    onAnswer("OK", true)
+    onAnswer("OK", true, sentence.id)
   }
 
   const handleNg = () => {
     if (disabled) return
-    onAnswer("NG", false)
+    onAnswer("NG", false, sentence.id)
   }
 
   return (

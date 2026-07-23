@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState } from "react"
 import type { WordData, SentenceData } from "@/lib/types"
 import Link from "next/link"
+import { pickStudySentence } from "@/lib/study-sentence"
 
 interface Stage5Props {
   wordData: WordData
-  onAnswer: (answer: string, isCorrect: boolean) => void
+  onAnswer: (answer: string, isCorrect: boolean, sentenceId?: string) => void
   disabled?: boolean
   mode?: "normal" | "weakness" | "quiz" | "challenge"
 }
@@ -19,9 +20,16 @@ function normalize(text: string): string {
     .replace(/[.,!?;:]+/g, "")
 }
 
-export function Stage5ClozeSingle({ wordData, onAnswer, disabled }: Stage5Props) {
+export function Stage5ClozeSingle({
+  wordData,
+  onAnswer,
+  disabled,
+  mode = "normal",
+}: Stage5Props) {
+  const preferredSentenceId =
+    mode === "weakness" ? wordData.weakness?.sentenceId : undefined
 
-  // ✅ s5が設定されている例文だけから選ぶ
+  // ✅ s5が設定されている例文だけから選ぶ（弱点復習時は保存した例文を優先）
   const sentence: SentenceData | null = useMemo(() => {
     const list = (wordData.sentences ?? []).filter((s) => {
       const len = s?.s5?.targetTokenIndexes?.length ?? 0
@@ -37,10 +45,8 @@ export function Stage5ClozeSingle({ wordData, onAnswer, disabled }: Stage5Props)
       return false
     })
 
-    if (list.length === 0) return null
-    const i = Math.floor(Math.random() * list.length)
-    return list[i]
-  }, [wordData.id, wordData.entryType])
+    return pickStudySentence(list, preferredSentenceId)
+  }, [wordData.id, wordData.entryType, preferredSentenceId])
 
   const targetIndexes = sentence?.s5?.targetTokenIndexes ?? []
 
@@ -103,7 +109,7 @@ export function Stage5ClozeSingle({ wordData, onAnswer, disabled }: Stage5Props)
   const handleSubmit = () => {
     const answer = input.trim()
     const isCorrect = normalize(answer) === correct
-    onAnswer(answer, isCorrect)
+    onAnswer(answer, isCorrect, sentence.id)
   }
 
   return (

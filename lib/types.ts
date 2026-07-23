@@ -5,6 +5,8 @@ export type Weakness = {
   stage: number;      // 0, 1, 2, 3, 5, 6, 7
   streak: number;    // 連続正解数（弱点復習用）
   updatedAt: number; // ms
+  /** 間違えた時点の例文ID（弱点復習で同じ例文を出題するため） */
+  sentenceId?: string;
 };
 
 export type SentenceData = {

@@ -155,7 +155,11 @@ export function StudyScreen({ mode = "normal", initialLimit }: Props) {
     setHasInitialized(true)
   }, [mode, limit, words, hasInitialized])
 
-  const handleAnswer = async (_: string, correct: boolean) => {
+  const handleAnswer = async (
+    _: string,
+    correct: boolean,
+    sentenceId?: string
+  ) => {
     setIsCorrect(correct)
     setShowResult(true)
 
@@ -172,13 +176,13 @@ export function StudyScreen({ mode = "normal", initialLimit }: Props) {
     if (mode === "weakness") {
       correct
         ? await markWeaknessCorrect(currentWord.id)
-        : await markWeaknessWrong(currentWord.id, currentStage as any)
+        : await markWeaknessWrong(currentWord.id, currentStage as any, sentenceId)
       return
     }
 
     correct
       ? await markNormalCorrect(currentWord.id)
-      : await markNormalWrong(currentWord.id, currentStage as any)
+      : await markNormalWrong(currentWord.id, currentStage as any, sentenceId)
   }
 
   const handleNext = () => {

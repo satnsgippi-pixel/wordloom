@@ -1,13 +1,13 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { getWords } from "@/lib/words-store"
 import type { WordData, SentenceData } from "@/lib/types"
 import { ClozeMissingCard } from "./cloze-missing-card"
+import { pickStudySentence } from "@/lib/study-sentence"
 
 type Props = {
   wordData: WordData
-  onAnswer: (answer: string, isCorrect: boolean) => void
+  onAnswer: (answer: string, isCorrect: boolean, sentenceId?: string) => void
   disabled?: boolean
   mode?: "normal" | "weakness" | "quiz" | "challenge"
   words: WordData[]
@@ -36,16 +36,17 @@ function buildClozeLabel(sentence: SentenceData, idxs: number[]) {
 
 export function Stage4ClozeChoice({ wordData, onAnswer, disabled, mode, words }: Props) {
   const minCount = requiredS5MinCount(wordData.entryType)
+  const preferredSentenceId =
+    mode === "weakness" ? wordData.weakness?.sentenceId : undefined
 
-  // ✅ s5が設定された例文だけから選ぶ
+  // ✅ s5が設定された例文だけから選ぶ（弱点復習時は保存した例文を優先）
   const sentence: SentenceData | null = useMemo(() => {
     const list = (wordData.sentences ?? []).filter((s) => {
       const idxs = s?.s5?.targetTokenIndexes ?? []
       return s?.tokens?.length > 0 && idxs.length >= minCount
     })
-    if (list.length === 0) return null
-    return list[Math.floor(Math.random() * list.length)]
-  }, [wordData.id, wordData.entryType])
+    return pickStudySentence(list, preferredSentenceId)
+  }, [wordData.id, wordData.entryType, minCount, preferredSentenceId])
 
   const targetIndexes = sentence?.s5?.targetTokenIndexes ?? []
 
@@ -112,11 +113,11 @@ export function Stage4ClozeChoice({ wordData, onAnswer, disabled, mode, words }:
     const finalChoices = shuffle([correct, ...distractors].slice(0, 4))
 
     return { displayTokens: display, choices: finalChoices }
-  }, [sentence, correct, targetIndexes.join(","), wordData.entryType, wordData.id, minCount])
+  }, [sentence, correct, targetIndexes.join(","), wordData.entryType, wordData.id, minCount, words])
 
   const handlePick = (picked: string) => {
     const isCorrect = normalize(picked) === normalize(correct)
-    onAnswer(picked, isCorrect)
+    onAnswer(picked, isCorrect, sentence.id)
   }
 
   return (

@@ -124,8 +124,13 @@ export async function markNormalCorrect(wordId: string) {
  * - weakness を付与（既存仕様に寄せる）
  * - stageは下げない
  * - stability/dueAt更新は次ステップで入れる（現時点では触らない）
+ * - sentenceId があれば弱点復習で同じ例文を出題できるように保存
  */
-export async function markNormalWrong(wordId: string, stage: number) {
+export async function markNormalWrong(
+  wordId: string,
+  stage: number,
+  sentenceId?: string
+) {
   const target = await getWordById(wordId);
   if (!target) return
 
@@ -139,6 +144,9 @@ export async function markNormalWrong(wordId: string, stage: number) {
   // 不正解で減（最低1）
   const nextStability = clamp(prevStability - 0.25, STABILITY_MIN, STABILITY_MAX)
 
+  const resolvedSentenceId =
+    sentenceId ?? target.weakness?.sentenceId
+
   const updated: WordData = {
     ...target,
     stageStreak: 0,
@@ -148,6 +156,7 @@ export async function markNormalWrong(wordId: string, stage: number) {
       stage,
       streak: 0,
       updatedAt: now,
+      ...(resolvedSentenceId ? { sentenceId: resolvedSentenceId } : {}),
     },
     updatedAt: now,
     lastReviewedAt: now,
@@ -165,13 +174,19 @@ export async function getWords(): Promise<WordData[]> {
 /**
  * Weakness: 不正解を記録（wordloom仕様）
  * - stage / stability / dueAt は変更しない
- * - weakness は { stage, streak, updatedAt } を維持
+ * - weakness は { stage, streak, updatedAt, sentenceId? } を維持
  */
-export async function markWeaknessWrong(wordId: string, stage: number) {
+export async function markWeaknessWrong(
+  wordId: string,
+  stage: number,
+  sentenceId?: string
+) {
   const target = await getWordById(wordId);
   if (!target) return;
 
   const now = Date.now();
+  const resolvedSentenceId =
+    sentenceId ?? target.weakness?.sentenceId
 
   const updated: WordData = {
     ...target,
@@ -179,6 +194,7 @@ export async function markWeaknessWrong(wordId: string, stage: number) {
       stage,
       streak: 0,
       updatedAt: now,
+      ...(resolvedSentenceId ? { sentenceId: resolvedSentenceId } : {}),
     },
     updatedAt: now,
     lastReviewedAt: now,

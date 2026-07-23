@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState } from "react"
 import type { WordData, SentenceData } from "@/lib/types"
 import Link from "next/link"
+import { pickStudySentence } from "@/lib/study-sentence"
 
 interface Stage6Props {
   wordData: WordData
-  onAnswer: (answer: string, isCorrect: boolean) => void
+  onAnswer: (answer: string, isCorrect: boolean, sentenceId?: string) => void
   disabled?: boolean
   mode?: "normal" | "weakness" | "quiz" | "challenge"
 }
@@ -21,34 +22,44 @@ function normalize(text: string): string {
 
 const MIN_STAGE6_BLANKS = 2
 
-function pickStage6Sentence(wordData: WordData): SentenceData | null {
+function pickStage6Sentence(
+  wordData: WordData,
+  preferredSentenceId?: string
+): SentenceData | null {
   const list = wordData.sentences ?? []
   if (list.length === 0) return null
 
   const candidates = list.filter((s) => {
     const idxs = s?.s6?.blankTokenIndexes ?? []
-    return Array.isArray(idxs) && idxs.length >= MIN_STAGE6_BLANKS && (s.tokens?.length ?? 0) > 0
+    return (
+      Array.isArray(idxs) &&
+      idxs.length >= MIN_STAGE6_BLANKS &&
+      (s.tokens?.length ?? 0) > 0
+    )
   })
 
-  if (candidates.length === 0) return null
-  return candidates[Math.floor(Math.random() * candidates.length)]
+  return pickStudySentence(candidates, preferredSentenceId)
 }
 
-function blankMarkers(n: number): string[] {
-  const labels = ["¹", "²", "³", "⁴", "⁵", "⁶", "⁷", "⁸", "⁹", "⁺"]
-  return Array.from({ length: n }, (_, i) => `____${labels[i] ?? String(i + 1)}`)
-}
+export function Stage6ClozeMultiple({
+  wordData,
+  onAnswer,
+  disabled,
+  mode = "normal",
+}: Stage6Props) {
+  const preferredSentenceId =
+    mode === "weakness" ? wordData.weakness?.sentenceId : undefined
 
-export function Stage6ClozeMultiple({ wordData, onAnswer, disabled }: Stage6Props) {
   const currentSentence: SentenceData | null = useMemo(
-    () => pickStage6Sentence(wordData),
-    [wordData.id]
+    () => pickStage6Sentence(wordData, preferredSentenceId),
+    [wordData.id, preferredSentenceId]
   )
 
   const blankIdxs = useMemo(
-    () => (currentSentence?.s6?.blankTokenIndexes ?? []).filter(
-      (i) => typeof i === "number" && Number.isFinite(i)
-    ),
+    () =>
+      (currentSentence?.s6?.blankTokenIndexes ?? []).filter(
+        (i) => typeof i === "number" && Number.isFinite(i)
+      ),
     [currentSentence]
   )
   const need = blankIdxs.length
@@ -71,41 +82,37 @@ export function Stage6ClozeMultiple({ wordData, onAnswer, disabled }: Stage6Prop
 
   const correct = normalize(correctRaw)
 
-  const isSubmitDisabled = disabled || need < MIN_STAGE6_BLANKS || answer.trim().length === 0
+  const isSubmitDisabled =
+    disabled || need < MIN_STAGE6_BLANKS || answer.trim().length === 0
 
   const handleSubmit = () => {
-    if (isSubmitDisabled) return
+    if (isSubmitDisabled || !currentSentence) return
     const trimmed = answer.trim()
     const isCorrect = normalize(trimmed) === correct
-    onAnswer(trimmed, isCorrect)
+    onAnswer(trimmed, isCorrect, currentSentence.id)
   }
 
-  if (
-    !currentSentence ||
-    need < MIN_STAGE6_BLANKS ||
-    !correctRaw
-  ) {
+  if (!currentSentence || need < MIN_STAGE6_BLANKS || !correctRaw) {
     return (
       <div>
         <p className="text-xs font-medium text-[#6B7280] uppercase tracking-wide mb-2">
           Cloze (Multiple Blanks)
         </p>
-  
+
         <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
           <p className="text-sm text-yellow-800 mb-2">Cloze が未設定です</p>
-  
-          {/* どの単語か分かるように */}
+
           <p className="text-sm text-[#111827] font-semibold">
             {wordData.word}
           </p>
           {wordData.meaning && (
             <p className="text-xs text-[#6B7280] mt-1">{wordData.meaning}</p>
           )}
-  
+
           <p className="text-xs text-yellow-700 mt-2">
             編集画面で Stage6 の穴埋め（2つ以上）を設定してください。
           </p>
-  
+
           <div className="mt-3 flex gap-2">
             <Link
               href={`/words/${wordData.id}/edit?from=study`}
@@ -117,7 +124,7 @@ export function Stage6ClozeMultiple({ wordData, onAnswer, disabled }: Stage6Prop
         </div>
       </div>
     )
-  }  
+  }
 
   return (
     <div>
@@ -142,7 +149,9 @@ export function Stage6ClozeMultiple({ wordData, onAnswer, disabled }: Stage6Prop
         </div>
 
         {showJa && (
-          <p className="text-sm text-[#6B7280] leading-relaxed mt-2">{currentSentence.ja}</p>
+          <p className="text-sm text-[#6B7280] leading-relaxed mt-2">
+            {currentSentence.ja}
+          </p>
         )}
 
         <button
