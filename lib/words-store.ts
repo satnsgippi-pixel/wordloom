@@ -24,19 +24,19 @@ function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n))
 }
 
-// stability → 間隔（日）テーブル
+// stability → 間隔（日）テーブル（復習負荷軽減のため全体を約2倍に拡張）
 const SRS_TABLE: { min: number; days: number }[] = [
-  { min: 1,  days: 0.5 },   // 12h
-  { min: 2,  days: 1 },     // 1d
-  { min: 3,  days: 2 },
-  { min: 4,  days: 4 },
-  { min: 5,  days: 7 },
-  { min: 6, days: 14 },
-  { min: 7, days: 28 },
-  { min: 8, days: 60 },    // ★追加
-  { min: 9, days: 120 },
-  { min: 10, days: 240 },
-  { min: 11, days: 360 },
+  { min: 1,  days: 1 },     // 0.5→1日
+  { min: 2,  days: 2 },     // 1→2日
+  { min: 3,  days: 4 },     // 2→4日
+  { min: 4,  days: 8 },     // 4→8日
+  { min: 5,  days: 14 },    // 7→14日
+  { min: 6,  days: 28 },    // 14→28日
+  { min: 7,  days: 56 },    // 28→56日
+  { min: 8,  days: 90 },    // 60→90日
+  { min: 9,  days: 150 },   // 120→150日
+  { min: 10, days: 270 },   // 240→270日
+  { min: 11, days: 360 },   // 360→360日（最大は据え置き）
 ]
 
 const STABILITY_MIN = 1
@@ -45,7 +45,7 @@ const STABILITY_MAX = 11
 function intervalDaysFromStability(stability: number) {
   const s = clamp(Math.round(stability), STABILITY_MIN, STABILITY_MAX)
 
-  let days = 0.5
+  let days = 1
   for (const row of SRS_TABLE) {
     if (s >= row.min) {
       days = row.days
