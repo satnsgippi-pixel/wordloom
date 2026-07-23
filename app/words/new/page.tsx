@@ -33,6 +33,46 @@ export default function NewWordPage() {
   const [qaMemo, setQaMemo] = useState("");
   const [isGeneratingMemo, setIsGeneratingMemo] = useState(false);
   const [isAutoCompleting, setIsAutoCompleting] = useState(false);
+  const [activeAction, setActiveAction] = useState<"nuance" | "compare" | "etymology" | "free" | null>(null);
+  const [actionInput, setActionInput] = useState("");
+
+  const handleDeepDive = async (action: string, extraInput: string = "") => {
+    if (!word.trim()) {
+      alert("Please enter a word or phrase first.");
+      return;
+    }
+    setIsGeneratingMemo(true);
+    try {
+      const res = await fetch("/api/gemini-detail", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ word, meaning, action, extraInput }),
+      });
+      if (!res.ok) throw new Error("Failed to fetch detail");
+
+      setQaMemo(prev => prev.trim() ? prev + "\n\n" : "");
+
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
+      if (!reader) throw new Error("No readable stream");
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const text = decoder.decode(value, { stream: true });
+        if (text) {
+          setQaMemo((prev) => prev + text);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Failed to generate deep dive notes.");
+    } finally {
+      setIsGeneratingMemo(false);
+      setActiveAction(null);
+      setActionInput("");
+    }
+  };
 
   const [sentencesDraft, setSentencesDraft] = useState<SentenceDraft[]>([
     {
@@ -221,22 +261,20 @@ export default function NewWordPage() {
             <button
               type="button"
               onClick={() => handleEntryTypeChange("word")}
-              className={`px-4 py-2 rounded-lg border text-sm ${
-                entryType === "word"
+              className={`px-4 py-2 rounded-lg border text-sm ${entryType === "word"
                   ? "bg-[#2563EB] text-white border-[#2563EB]"
                   : "bg-white text-[#111827] border-[#E5E7EB]"
-              }`}
+                }`}
             >
               word
             </button>
             <button
               type="button"
               onClick={() => handleEntryTypeChange("phrase")}
-              className={`px-4 py-2 rounded-lg border text-sm ${
-                entryType === "phrase"
+              className={`px-4 py-2 rounded-lg border text-sm ${entryType === "phrase"
                   ? "bg-[#2563EB] text-white border-[#2563EB]"
                   : "bg-white text-[#111827] border-[#E5E7EB]"
-              }`}
+                }`}
             >
               phrase
             </button>
@@ -280,13 +318,12 @@ export default function NewWordPage() {
                   }
                 }}
                 disabled={isAutoCompleting || !word.trim() || !sentencesDraft[0]?.en?.trim()}
-                className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
-                  isAutoCompleting
+                className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${isAutoCompleting
                     ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
                     : (word.trim() && sentencesDraft[0]?.en?.trim())
-                    ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
-                    : "bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed"
-                }`}
+                      ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+                      : "bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed"
+                  }`}
               >
                 {isAutoCompleting ? "生成中..." : "✨ AIで補完"}
               </button>
@@ -314,58 +351,87 @@ export default function NewWordPage() {
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex flex-col mb-2 gap-2">
               <label className="block text-sm font-medium text-[#6B7280]">
                 Deep Dive Notes (深堀りメモ)
               </label>
-              <button
-                type="button"
-                onClick={async () => {
-                  if (!word.trim()) {
-                    alert("Please enter a word or phrase first.");
-                    return;
-                  }
-                  setIsGeneratingMemo(true);
-                  try {
-                    const res = await fetch("/api/gemini-detail", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ word, meaning }),
-                    });
-                    if (!res.ok) throw new Error("Failed to fetch detail");
-                    
-                    setQaMemo(prev => prev.trim() ? prev + "\n\n" : "");
-                    
-                    const reader = res.body?.getReader();
-                    const decoder = new TextDecoder();
-                    if (!reader) throw new Error("No readable stream");
+              
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleDeepDive('nuance')}
+                  disabled={isGeneratingMemo || !word.trim()}
+                  className={`px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${
+                    isGeneratingMemo ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed" :
+                    word.trim() ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100" :
+                    "bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed"
+                  }`}
+                >
+                  ニュアンス
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveAction(activeAction === 'compare' ? null : 'compare')}
+                  disabled={isGeneratingMemo || !word.trim()}
+                  className={`px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${
+                    activeAction === 'compare' ? 'bg-blue-600 text-white border-blue-600' :
+                    isGeneratingMemo ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed" :
+                    word.trim() ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100" :
+                    "bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed"
+                  }`}
+                >
+                  類義語比較
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeepDive('etymology')}
+                  disabled={isGeneratingMemo || !word.trim()}
+                  className={`px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${
+                    isGeneratingMemo ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed" :
+                    word.trim() ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100" :
+                    "bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed"
+                  }`}
+                >
+                  語源・歴史
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveAction(activeAction === 'free' ? null : 'free')}
+                  disabled={isGeneratingMemo || !word.trim()}
+                  className={`px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${
+                    activeAction === 'free' ? 'bg-blue-600 text-white border-blue-600' :
+                    isGeneratingMemo ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed" :
+                    word.trim() ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100" :
+                    "bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed"
+                  }`}
+                >
+                  自由質問
+                </button>
+              </div>
 
-                    while (true) {
-                      const { done, value } = await reader.read();
-                      if (done) break;
-                      const text = decoder.decode(value, { stream: true });
-                      if (text) {
-                        setQaMemo((prev) => prev + text);
-                      }
-                    }
-                  } catch (err) {
-                    console.error(err);
-                    alert("Failed to generate deep dive notes.");
-                  } finally {
-                    setIsGeneratingMemo(false);
-                  }
-                }}
-                disabled={isGeneratingMemo || !word.trim()}
-                className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
-                  isGeneratingMemo
-                    ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                    : word.trim()
-                    ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
-                    : "bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed"
-                }`}
-              >
-                {isGeneratingMemo ? "Generating..." : "💡 AIで深掘り生成"}
-              </button>
+              {(activeAction === 'compare' || activeAction === 'free') && (
+                <div className="flex gap-2 mt-1">
+                  <input
+                    type="text"
+                    value={actionInput}
+                    onChange={(e) => setActionInput(e.target.value)}
+                    placeholder={activeAction === 'compare' ? "比較対象の単語を入力..." : "質問や知りたいことを入力..."}
+                    className="flex-1 px-3 py-2 text-sm bg-white border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#93C5FD]"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="none"
+                    spellCheck="false"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleDeepDive(activeAction, actionInput)}
+                    disabled={!actionInput.trim() || isGeneratingMemo}
+                    className="px-4 py-2 text-sm font-medium text-white bg-[#2563EB] rounded-lg hover:bg-[#1D4ED8] disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  >
+                    実行
+                  </button>
+                </div>
+              )}
             </div>
             <textarea
               value={qaMemo}
@@ -413,11 +479,10 @@ export default function NewWordPage() {
           <button
             onClick={handleSave}
             disabled={!canSave}
-            className={`w-full py-3 text-base font-medium rounded-lg transition-colors ${
-              canSave
+            className={`w-full py-3 text-base font-medium rounded-lg transition-colors ${canSave
                 ? "bg-[#2563EB] text-white hover:bg-[#1D4ED8]"
                 : "bg-[#E5E7EB] text-[#9CA3AF] cursor-not-allowed"
-            } focus:outline-none focus:ring-2 focus:ring-[#93C5FD] focus:ring-offset-2`}
+              } focus:outline-none focus:ring-2 focus:ring-[#93C5FD] focus:ring-offset-2`}
           >
             Save
           </button>
@@ -484,7 +549,7 @@ function SentenceBlock({
       setIsGeneratingAI(false);
     }
   };
-  
+
   const s5Need = entryType === "phrase" ? 2 : 1;
 
   const stage5Preview = useMemo(() => {
@@ -508,13 +573,12 @@ function SentenceBlock({
             type="button"
             onClick={handleAIGenerate}
             disabled={isGeneratingAI || !wordContent.trim()}
-            className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
-              isGeneratingAI
+            className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${isGeneratingAI
                 ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
                 : wordContent.trim()
-                ? "bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100"
-                : "bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed"
-            }`}
+                  ? "bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100"
+                  : "bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed"
+              }`}
           >
             {isGeneratingAI ? "Generating..." : "✨ AIで例文生成"}
           </button>
@@ -586,11 +650,10 @@ function SentenceBlock({
                     key={`s5-${t}-${i}`}
                     type="button"
                     onClick={() => onToggleS5(i)}
-                    className={`px-3 py-1 rounded-full border text-sm ${
-                      isS5
+                    className={`px-3 py-1 rounded-full border text-sm ${isS5
                         ? "bg-blue-50 border-blue-300 text-blue-800"
                         : "bg-white border-[#E5E7EB] text-[#111827]"
-                    }`}
+                      }`}
                   >
                     {t}
                     {order !== null && (
@@ -621,11 +684,10 @@ function SentenceBlock({
                   key={`s6-${t}-${i}`}
                   type="button"
                   onClick={() => onToggleS6(i)}
-                  className={`px-3 py-1 rounded-full border text-sm ${
-                    isS6
+                  className={`px-3 py-1 rounded-full border text-sm ${isS6
                       ? "bg-green-50 border-green-300 text-green-800"
                       : "bg-white border-[#E5E7EB] text-[#111827]"
-                  }`}
+                    }`}
                 >
                   {t}
                   {order !== null && (
