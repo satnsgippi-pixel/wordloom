@@ -19,14 +19,16 @@ export function Stage7SelfJudge({
 }: Stage7Props) {
   const preferredSentenceId =
     mode === "weakness" ? wordData.weakness?.sentenceId : undefined
+  const clearedSentenceIds =
+    mode === "weakness" ? undefined : wordData.stageClearedSentenceIds
 
   // ✅ 日本語・英語が揃っている例文から1つ選ぶ（弱点復習時は保存した例文を優先）
   const sentence: SentenceData | null = useMemo(() => {
     const list = (wordData.sentences ?? []).filter(
       (s) => (s?.ja ?? "").trim().length > 0 && (s?.en ?? "").trim().length > 0
     )
-    return pickStudySentence(list, preferredSentenceId)
-  }, [wordData.id, preferredSentenceId])
+    return pickStudySentence(list, preferredSentenceId, clearedSentenceIds)
+  }, [wordData.id, preferredSentenceId, clearedSentenceIds])
 
   const [revealed, setRevealed] = useState(false)
 

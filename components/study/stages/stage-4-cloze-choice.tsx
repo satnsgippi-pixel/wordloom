@@ -38,6 +38,8 @@ export function Stage4ClozeChoice({ wordData, onAnswer, disabled, mode, words }:
   const minCount = requiredS5MinCount(wordData.entryType)
   const preferredSentenceId =
     mode === "weakness" ? wordData.weakness?.sentenceId : undefined
+  const clearedSentenceIds =
+    mode === "weakness" ? undefined : wordData.stageClearedSentenceIds
 
   // ✅ s5が設定された例文だけから選ぶ（弱点復習時は保存した例文を優先）
   const sentence: SentenceData | null = useMemo(() => {
@@ -45,8 +47,8 @@ export function Stage4ClozeChoice({ wordData, onAnswer, disabled, mode, words }:
       const idxs = s?.s5?.targetTokenIndexes ?? []
       return s?.tokens?.length > 0 && idxs.length >= minCount
     })
-    return pickStudySentence(list, preferredSentenceId)
-  }, [wordData.id, wordData.entryType, minCount, preferredSentenceId])
+    return pickStudySentence(list, preferredSentenceId, clearedSentenceIds)
+  }, [wordData.id, wordData.entryType, minCount, preferredSentenceId, clearedSentenceIds])
 
   const targetIndexes = sentence?.s5?.targetTokenIndexes ?? []
 

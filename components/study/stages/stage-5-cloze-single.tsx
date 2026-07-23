@@ -28,6 +28,8 @@ export function Stage5ClozeSingle({
 }: Stage5Props) {
   const preferredSentenceId =
     mode === "weakness" ? wordData.weakness?.sentenceId : undefined
+  const clearedSentenceIds =
+    mode === "weakness" ? undefined : wordData.stageClearedSentenceIds
 
   // ✅ s5が設定されている例文だけから選ぶ（弱点復習時は保存した例文を優先）
   const sentence: SentenceData | null = useMemo(() => {
@@ -45,8 +47,8 @@ export function Stage5ClozeSingle({
       return false
     })
 
-    return pickStudySentence(list, preferredSentenceId)
-  }, [wordData.id, wordData.entryType, preferredSentenceId])
+    return pickStudySentence(list, preferredSentenceId, clearedSentenceIds)
+  }, [wordData.id, wordData.entryType, preferredSentenceId, clearedSentenceIds])
 
   const targetIndexes = sentence?.s5?.targetTokenIndexes ?? []
 

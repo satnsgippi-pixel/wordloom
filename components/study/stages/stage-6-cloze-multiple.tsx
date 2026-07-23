@@ -24,7 +24,8 @@ const MIN_STAGE6_BLANKS = 2
 
 function pickStage6Sentence(
   wordData: WordData,
-  preferredSentenceId?: string
+  preferredSentenceId?: string,
+  clearedSentenceIds?: string[]
 ): SentenceData | null {
   const list = wordData.sentences ?? []
   if (list.length === 0) return null
@@ -38,7 +39,7 @@ function pickStage6Sentence(
     )
   })
 
-  return pickStudySentence(candidates, preferredSentenceId)
+  return pickStudySentence(candidates, preferredSentenceId, clearedSentenceIds)
 }
 
 export function Stage6ClozeMultiple({
@@ -49,10 +50,12 @@ export function Stage6ClozeMultiple({
 }: Stage6Props) {
   const preferredSentenceId =
     mode === "weakness" ? wordData.weakness?.sentenceId : undefined
+  const clearedSentenceIds =
+    mode === "weakness" ? undefined : wordData.stageClearedSentenceIds
 
   const currentSentence: SentenceData | null = useMemo(
-    () => pickStage6Sentence(wordData, preferredSentenceId),
-    [wordData.id, preferredSentenceId]
+    () => pickStage6Sentence(wordData, preferredSentenceId, clearedSentenceIds),
+    [wordData.id, preferredSentenceId, clearedSentenceIds]
   )
 
   const blankIdxs = useMemo(

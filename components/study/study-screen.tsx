@@ -183,7 +183,7 @@ export function StudyScreen({ mode = "normal", initialLimit }: Props) {
     }
 
     correct
-      ? await markNormalCorrect(currentWord.id)
+      ? await markNormalCorrect(currentWord.id, sentenceId)
       : await markNormalWrong(currentWord.id, currentStage as any, sentenceId)
   }
 

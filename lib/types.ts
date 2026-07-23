@@ -35,6 +35,8 @@ export type WordData = {
   // 学習進行
   currentStage: number;
   stageStreak: number;
+  /** Stage4〜7: 現ステージで正解済みの例文ID（全候補正解で次ステージへ） */
+  stageClearedSentenceIds?: string[];
 
   // SRS / 定着度
   stability: number;

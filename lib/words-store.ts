@@ -14,8 +14,65 @@ export const CHALLENGE_MIN_STABILITY = 12;
 
 // ===== Normal Study: stage進行ルール =====
 function requiredStreak(stage: number) {
-  // stage0-3: 2連続 / stage5-7: 5連続
-  return stage >= 5 ? 5 : 2;
+  // Stage0〜3: 2連続正解。Stage4〜7は例文クリア方式のため未使用。
+  // Stage8+: 旧仕様に合わせ 5 連続。
+  return stage >= 8 ? 5 : 2
+}
+
+function usesSentenceClearProgress(stage: number) {
+  return stage >= 4 && stage <= 7
+}
+
+/**
+ * Stage4〜7 で「出題可能な候補例文」の ID 一覧（各 Stage のフィルタと揃える）
+ */
+function getStageCandidateSentenceIds(word: WordData, stage: number): string[] {
+  const sentences = word.sentences ?? []
+
+  if (stage === 4) {
+    const minCount = word.entryType === "phrase" ? 2 : 1
+    return sentences
+      .filter((s) => {
+        const idxs = s?.s5?.targetTokenIndexes ?? []
+        return (s?.tokens?.length ?? 0) > 0 && idxs.length >= minCount
+      })
+      .map((s) => s.id)
+  }
+
+  if (stage === 5) {
+    return sentences
+      .filter((s) => {
+        const len = s?.s5?.targetTokenIndexes?.length ?? 0
+        if (word.entryType === "word") return len === 1
+        if (word.entryType === "phrase") return len >= 2
+        return false
+      })
+      .map((s) => s.id)
+  }
+
+  if (stage === 6) {
+    return sentences
+      .filter((s) => {
+        const idxs = s?.s6?.blankTokenIndexes ?? []
+        return (
+          Array.isArray(idxs) &&
+          idxs.length >= 2 &&
+          (s.tokens?.length ?? 0) > 0
+        )
+      })
+      .map((s) => s.id)
+  }
+
+  if (stage === 7) {
+    return sentences
+      .filter(
+        (s) =>
+          (s?.ja ?? "").trim().length > 0 && (s?.en ?? "").trim().length > 0
+      )
+      .map((s) => s.id)
+  }
+
+  return []
 }
 
 // ===== SRS utilities =====
@@ -73,12 +130,14 @@ function computeNextDueAt(
 
 /**
  * Normal Study: 正解を記録
- * - stageStreak++
- * - 規定回数で currentStage++ & stageStreak=0
+ * - Stage0〜3: stageStreak++、規定回数で currentStage++
+ * - Stage4〜7: 候補例文を全て正解して初めて currentStage++
  * - stageは下げない
- * - stability/dueAt更新は次ステップで入れる（現時点では触らない）
  */
-export async function markNormalCorrect(wordId: string) {
+export async function markNormalCorrect(
+  wordId: string,
+  sentenceId?: string
+) {
   const target = await getWordById(wordId);
   if (!target) return
 
@@ -92,22 +151,50 @@ export async function markNormalCorrect(wordId: string) {
   // 正解で微増
   const nextStability = clamp(prevStability + 1, STABILITY_MIN, STABILITY_MAX)
 
-  // stage進行
-  const nextStreak = (target.stageStreak ?? 0) + 1
-  const need = requiredStreak(target.currentStage ?? 0)
+  const currentStage = target.currentStage ?? 0
+  let nextStage = currentStage
+  let finalStreak = target.stageStreak ?? 0
+  let nextCleared = [...(target.stageClearedSentenceIds ?? [])]
 
-  let nextStage = target.currentStage ?? 0
-  let finalStreak = nextStreak
+  if (usesSentenceClearProgress(currentStage)) {
+    // Stage4〜7: 例文クリア方式
+    if (sentenceId) {
+      if (!nextCleared.includes(sentenceId)) {
+        nextCleared.push(sentenceId)
+      }
+    }
 
-  if (nextStreak >= need) {
-    nextStage = nextStage + 1
-    finalStreak = 0
+    const candidates = getStageCandidateSentenceIds(target, currentStage)
+    // 候補に無い ID は無視（編集で消えた例文など）
+    nextCleared = nextCleared.filter((id) => candidates.includes(id))
+
+    const allCleared =
+      candidates.length > 0 &&
+      candidates.every((id) => nextCleared.includes(id))
+
+    if (allCleared) {
+      nextStage = currentStage + 1
+      finalStreak = 0
+      nextCleared = []
+    }
+  } else {
+    // Stage0〜3（および 8+）: 連続正解ストリーク
+    const nextStreak = finalStreak + 1
+    const need = requiredStreak(currentStage)
+    finalStreak = nextStreak
+
+    if (nextStreak >= need) {
+      nextStage = currentStage + 1
+      finalStreak = 0
+      nextCleared = [] // ステージ変更時にリセット
+    }
   }
 
   const updated: WordData = {
     ...target,
     currentStage: nextStage,
     stageStreak: finalStreak,
+    stageClearedSentenceIds: nextCleared,
     stability: nextStability,
     dueAt: computeNextDueAt(now, nextStability, true),
     updatedAt: now,
@@ -123,8 +210,7 @@ export async function markNormalCorrect(wordId: string) {
  * - stageStreak = 0
  * - weakness を付与（既存仕様に寄せる）
  * - stageは下げない
- * - stability/dueAt更新は次ステップで入れる（現時点では触らない）
- * - sentenceId があれば弱点復習で同じ例文を出題できるように保存
+ * - sentenceId があれば弱点復習用に保存し、Stage4〜7では cleared から除外
  */
 export async function markNormalWrong(
   wordId: string,
@@ -147,9 +233,15 @@ export async function markNormalWrong(
   const resolvedSentenceId =
     sentenceId ?? target.weakness?.sentenceId
 
+  let nextCleared = [...(target.stageClearedSentenceIds ?? [])]
+  if (usesSentenceClearProgress(stage) && sentenceId) {
+    nextCleared = nextCleared.filter((id) => id !== sentenceId)
+  }
+
   const updated: WordData = {
     ...target,
     stageStreak: 0,
+    stageClearedSentenceIds: nextCleared,
     stability: nextStability,
     dueAt: computeNextDueAt(now, nextStability, false),
     weakness: {

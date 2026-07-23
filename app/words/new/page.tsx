@@ -229,6 +229,7 @@ export default function NewWordPage() {
       })),
       currentStage: 0,
       stageStreak: 0,
+      stageClearedSentenceIds: [],
       stability: 1,
       dueAt: now,
       createdAt: now,
